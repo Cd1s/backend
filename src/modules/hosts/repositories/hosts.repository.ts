@@ -220,15 +220,24 @@ export class HostsRepository implements ICrud<HostsEntity> {
             return [];
         }
 
-        return await this.qb.kysely
-            .selectFrom('configProfileInbounds')
-            .select(['uuid', 'rawInbound', 'tag'])
-            .where(
-                'uuid',
-                'in',
-                uuids.map((u) => getKyselyUuid(u)),
-            )
-            .execute();
+        // Kysely's CamelCasePlugin recursively rewrites native core JSON keys.
+        const result = await this.prisma.tx.configProfileInbounds.findMany({
+            where: {
+                uuid: {
+                    in: uuids,
+                },
+            },
+            select: {
+                uuid: true,
+                rawInbound: true,
+                tag: true,
+            },
+        });
+
+        return result.map((inbound) => ({
+            ...inbound,
+            rawInbound: inbound.rawInbound as object | null,
+        }));
     }
 
     public async getTemplatesByUuids(uuids: string[]) {
