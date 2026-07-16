@@ -72,6 +72,8 @@ export class XrayGeneratorService {
                 return this.buildShadowsocksLink(host);
             case 'hysteria':
                 return this.buildHysteria2Link(host);
+            case 'anytls':
+                return this.buildAnyTlsLink(host);
             default:
                 return null;
         }
@@ -139,6 +141,49 @@ export class XrayGeneratorService {
         const remark = encodeURIComponent(host.finalRemark);
 
         return `ss://${credentials}@${host.address}:${host.port}#${remark}`;
+    }
+
+    // ── AnyTLS ───────────────────────────────────────
+    // anytls://password@host:port?security=tls&type=tcp&...#remark
+
+    private buildAnyTlsLink(
+        host: Extract<ResolvedProxyConfig, { protocol: 'anytls' }>,
+    ): string | null {
+        // AnyTLS always runs over TLS and currently has no separate transport
+        // layer in the supported Shadowrocket/URI representation.
+        if (host.security !== 'tls' || host.transport !== 'tcp') {
+            return null;
+        }
+
+        const params: Record<string, unknown> = {
+            security: 'tls',
+            type: 'tcp',
+            udp: 1,
+        };
+        const opts = host.securityOptions;
+
+        if (opts.serverName) {
+            params.sni = opts.serverName;
+        }
+        if (opts.alpn) {
+            params.alpn = opts.alpn;
+        }
+        if (opts.fingerprint) {
+            params.fp = opts.fingerprint;
+        }
+
+        // Remnawave uses this field to request certificate-pin/insecure
+        // behavior across subscription generators. Shadowrocket's AnyTLS URI
+        // representation uses insecure=1 for self-signed certificates.
+        if (opts.pinnedPeerCertSha256) {
+            params.insecure = 1;
+        }
+
+        const query = this.buildQueryString(params);
+        const password = encodeURIComponent(host.protocolOptions.password);
+        const remark = encodeURIComponent(host.finalRemark);
+
+        return `anytls://${password}@${host.address}:${host.port}?${query}#${remark}`;
     }
 
     // ── Hysteria 2 ───────────────────────────────────

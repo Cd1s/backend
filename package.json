@@ -44,7 +44,8 @@
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "check": "oxfmt --check && oxlint",
-    "fix": "oxfmt && oxlint --fix"
+    "fix": "oxfmt && oxlint --fix",
+    "validate:shadowrocket-anytls": "node scripts/validate-shadowrocket-anytls.cjs"
   },
   "dependencies": {
     "@bull-board/api": "8.0.1",
