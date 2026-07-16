@@ -1,16 +1,24 @@
-FROM alpine:3.19 AS frontend
+FROM node:24.18-trixie-slim AS frontend
 WORKDIR /opt/frontend
 
-ARG BRANCH=main
-ARG FRONTEND_URL=https://github.com/remnawave/frontend/releases/latest/download/remnawave-frontend.zip
+ARG FRONTEND_REPO=https://github.com/Cd1s/frontend.git
+ARG FRONTEND_REF=singbox
 
-RUN apk add --no-cache curl unzip ca-certificates \
-    && curl -L ${FRONTEND_URL} -o frontend.zip \
-    && unzip frontend.zip -d frontend_temp \
-    && curl -L https://validator.remna.dev/wasm_exec.js -o frontend_temp/dist/assets/wasm_exec.js \
-    && curl -L https://validator.remna.dev/xray.schema.json -o frontend_temp/dist/assets/xray.schema.json \
-    && curl -L https://validator.remna.dev/xray.schema.cn.json -o frontend_temp/dist/assets/xray.schema.cn.json \
-    && curl -L https://validator.remna.dev/main.wasm -o frontend_temp/dist/assets/main.wasm
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl git \
+    && rm -rf /var/lib/apt/lists/* \
+    && git init . \
+    && git remote add origin "${FRONTEND_REPO}" \
+    && git fetch --depth 1 origin "${FRONTEND_REF}" \
+    && git checkout --detach FETCH_HEAD
+
+RUN npm ci --prefer-offline --no-audit --no-fund \
+    && npm run start:build \
+    && mkdir -p dist/assets \
+    && curl -L https://validator.remna.dev/wasm_exec.js -o dist/assets/wasm_exec.js \
+    && curl -L https://validator.remna.dev/xray.schema.json -o dist/assets/xray.schema.json \
+    && curl -L https://validator.remna.dev/xray.schema.cn.json -o dist/assets/xray.schema.cn.json \
+    && curl -L https://validator.remna.dev/main.wasm -o dist/assets/main.wasm
 
 FROM node:24.18-trixie-slim AS backend-build
 WORKDIR /opt/app
@@ -41,11 +49,11 @@ RUN npm prune --omit=dev
 
 FROM node:24.18-trixie-slim
 
-LABEL org.opencontainers.image.title="Remnawave"
-LABEL org.opencontainers.image.description="Powerful proxy management tool"
-LABEL org.opencontainers.image.url="https://github.com/remnawave/backend"
-LABEL org.opencontainers.image.source="https://github.com/remnawave/backend"
-LABEL org.opencontainers.image.vendor="Remnawave"
+LABEL org.opencontainers.image.title="Remnawave Dual Core"
+LABEL org.opencontainers.image.description="Remnawave with Xray, sing-box and AnyTLS support"
+LABEL org.opencontainers.image.url="https://github.com/Cd1s/backend"
+LABEL org.opencontainers.image.source="https://github.com/Cd1s/backend"
+LABEL org.opencontainers.image.vendor="Cd1s"
 LABEL org.opencontainers.image.licenses="AGPL-3.0"
 LABEL org.opencontainers.image.documentation="https://docs.rw"
 
@@ -86,7 +94,7 @@ ENV __RW_METADATA_BUILD_TIME=${__RW_METADATA_BUILD_TIME}
 ENV __RW_METADATA_BUILD_NUMBER=${__RW_METADATA_BUILD_NUMBER}
 
 COPY --from=backend-build /opt/app/dist ./dist
-COPY --from=frontend /opt/frontend/frontend_temp/dist ./frontend
+COPY --from=frontend /opt/frontend/dist ./frontend
 COPY --from=backend-build /opt/app/prisma ./prisma
 COPY --from=backend-build /opt/app/node_modules ./node_modules
 
