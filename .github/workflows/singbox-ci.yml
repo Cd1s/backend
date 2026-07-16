@@ -72,7 +72,6 @@ jobs:
             ${{ env.IMAGE }}:singbox
             ${{ env.IMAGE }}:sha-${{ github.sha }}
           build-args: |
-            BRANCH=singbox
             FRONTEND_REPO=https://github.com/Cd1s/frontend.git
             FRONTEND_REF=${{ steps.frontend.outputs.sha }}
             __RW_METADATA_VERSION=2.8.1-singbox
