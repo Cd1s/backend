@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { CONFIG_PROFILES_ROUTES, REST_API } from '../../api';
-import { getEndpointDetails } from '../../constants';
+import { CONFIG_PROFILE_CORE_TYPE, getEndpointDetails } from '../../constants';
 import { ConfigProfileSchema } from '../../models';
 
 export namespace UpdateConfigProfileCommand {
@@ -25,6 +25,9 @@ export namespace UpdateConfigProfileCommand {
                 /^[A-Za-z0-9_\s-]+$/,
                 'Name can only contain letters, numbers, underscores, dashes and spaces',
             )
+            .optional(),
+        coreType: z
+            .enum([CONFIG_PROFILE_CORE_TYPE.XRAY, CONFIG_PROFILE_CORE_TYPE.SINGBOX])
             .optional(),
         config: z.object({}).passthrough().optional(),
     });

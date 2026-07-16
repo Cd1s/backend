@@ -5,10 +5,14 @@ import _ from 'lodash';
 import { Injectable, Logger } from '@nestjs/common';
 import { QueryBus } from '@nestjs/cqrs';
 
-import { XRayConfig } from '@common/helpers/xray-config';
+import { createCoreConfig } from '@common/helpers/core-config';
 import { RawCacheService } from '@common/raw-cache';
 import { fail, ok, TResult } from '@common/types';
-import { CACHE_KEYS } from '@libs/contracts/constants';
+import {
+    CACHE_KEYS,
+    CONFIG_PROFILE_CORE_TYPE,
+    TConfigProfileCoreType,
+} from '@libs/contracts/constants';
 import { ERRORS } from '@libs/contracts/constants/errors';
 
 import { NodesQueuesService } from '@queue/_nodes';
@@ -39,7 +43,8 @@ export class ConfigProfileService {
             const configProfiles = await this.configProfileRepository.getAllConfigProfiles();
 
             for (const configProfile of configProfiles) {
-                configProfile.config = new XRayConfig(
+                configProfile.config = createCoreConfig(
+                    configProfile.coreType as TConfigProfileCoreType,
                     configProfile.config as object,
                 ).getSortedConfig();
             }
@@ -63,7 +68,10 @@ export class ConfigProfileService {
                 return fail(ERRORS.CONFIG_PROFILE_NOT_FOUND);
             }
 
-            configProfile.config = new XRayConfig(configProfile.config as object).getSortedConfig();
+            configProfile.config = createCoreConfig(
+                configProfile.coreType as TConfigProfileCoreType,
+                configProfile.config as object,
+            ).getSortedConfig();
 
             return ok(new GetConfigProfileByUuidResponseModel(configProfile));
         } catch (error) {
@@ -93,7 +101,10 @@ export class ConfigProfileService {
                 snippetsMap.set(snippet.name, snippet.snippet);
             }
 
-            const config = new XRayConfig(configProfile.config as object);
+            const config = createCoreConfig(
+                configProfile.coreType as TConfigProfileCoreType,
+                configProfile.config as object,
+            );
             config.replaceSnippets(snippetsMap);
 
             configProfile.config = config.getSortedConfig();
@@ -138,17 +149,19 @@ export class ConfigProfileService {
     public async createConfigProfile(
         name: string,
         config: object,
+        coreType: TConfigProfileCoreType = CONFIG_PROFILE_CORE_TYPE.XRAY,
     ): Promise<TResult<GetConfigProfileByUuidResponseModel>> {
         try {
             if (name === 'Default-Profile') {
                 return fail(ERRORS.RESERVED_CONFIG_PROFILE_NAME);
             }
 
-            const validatedConfig = new XRayConfig(config);
+            const validatedConfig = createCoreConfig(coreType, config);
             const sortedConfig = validatedConfig.getSortedConfig();
 
             const profileEntity = new ConfigProfileEntity({
                 name,
+                coreType,
                 config: sortedConfig as object,
             });
 
@@ -197,6 +210,7 @@ export class ConfigProfileService {
         uuid: string,
         name?: string,
         config?: object,
+        coreType?: TConfigProfileCoreType,
     ): Promise<TResult<GetConfigProfileByUuidResponseModel>> {
         try {
             const existingConfigProfile =
@@ -206,13 +220,19 @@ export class ConfigProfileService {
                 return fail(ERRORS.CONFIG_PROFILE_NOT_FOUND);
             }
 
-            if (!name && !config) {
+            if (!name && !config && !coreType) {
                 return fail(ERRORS.NAME_OR_CONFIG_REQUIRED);
             }
 
-            await this.updateConfigProfileTransactional(existingConfigProfile, uuid, name, config);
+            await this.updateConfigProfileTransactional(
+                existingConfigProfile,
+                uuid,
+                name,
+                config,
+                coreType,
+            );
 
-            if (config) {
+            if (config || coreType) {
                 // No need for now
                 // await this.commandBus.execute(new SyncActiveProfileCommand());
 
@@ -262,16 +282,20 @@ export class ConfigProfileService {
         uuid: string,
         name?: string,
         config?: object,
+        coreType?: TConfigProfileCoreType,
     ): Promise<boolean> {
         const configProfileEntity = new ConfigProfileEntity({
             uuid,
             name,
         });
 
-        if (config) {
+        if (config || coreType) {
             const existingInbounds = existingConfigProfile.inbounds;
+            const nextCoreType =
+                coreType ?? (existingConfigProfile.coreType as TConfigProfileCoreType);
+            const nextConfig = config ?? (existingConfigProfile.config as object);
 
-            const validatedConfig = new XRayConfig(config);
+            const validatedConfig = createCoreConfig(nextCoreType, nextConfig);
             validatedConfig.cleanInboundClients(false);
             validatedConfig.fixIncorrectServerNames();
             const sortedConfig = validatedConfig.getSortedConfig();
@@ -293,6 +317,7 @@ export class ConfigProfileService {
             await this.syncInbounds(existingInbounds, inboundsEntities);
 
             configProfileEntity.config = sortedConfig as object;
+            configProfileEntity.coreType = nextCoreType;
         }
 
         await this.configProfileRepository.update(configProfileEntity);

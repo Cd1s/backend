@@ -2,8 +2,7 @@ import { Logger } from '@nestjs/common';
 import { IEventHandler, QueryBus } from '@nestjs/cqrs';
 import { EventsHandler } from '@nestjs/cqrs';
 
-import { AddUserCommand as AddUserToNodeCommandSdk } from '@remnawave/node-contract';
-
+import { TAddUserToNodeRequest } from '@common/axios';
 import {
     getCipherTypeFromString,
     getSsPassword,
@@ -50,7 +49,7 @@ export class AddUserToNodeHandler implements IEventHandler<AddUserToNodeEvent> {
                 return;
             }
 
-            const userData: AddUserToNodeCommandSdk.Request = {
+            const userData: TAddUserToNodeRequest = {
                 hashData: {
                     vlessUuid,
                     prevVlessUuid: event.prevVlessUuid,
@@ -92,6 +91,13 @@ export class AddUserToNodeHandler implements IEventHandler<AddUserToNodeEvent> {
                                 tag: inbound.tag,
                             };
                         case 'hysteria':
+                            return {
+                                type: inboundType,
+                                username: tId.toString(),
+                                password: vlessUuid,
+                                tag: inbound.tag,
+                            };
+                        case 'anytls':
                             return {
                                 type: inboundType,
                                 username: tId.toString(),

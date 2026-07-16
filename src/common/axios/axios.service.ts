@@ -30,12 +30,18 @@ import {
 
 import { prettyBytesUtil } from '@common/utils/bytes';
 import { formatExecutionTime, getTime } from '@common/utils/get-elapsed-time';
+import { TConfigProfileCoreType } from '@libs/contracts/constants';
 
 import { GetNodeJwtCommand } from '@modules/keygen/commands/get-node-jwt';
 
 import { fail, ok, TResult } from '../types';
 import { INodeConnectionOpts, IMtlsOptions } from './axios.interfaces';
 import { MtlsSocksProxyAgent } from './mtls-agent';
+import { TAddUsersToNodeRequest, TAddUserToNodeRequest } from './node-contract-extensions';
+
+type TStartCoreRequest = StartXrayCommand.Request & {
+    coreType?: TConfigProfileCoreType;
+};
 
 @Injectable()
 export class AxiosService {
@@ -128,7 +134,7 @@ export class AxiosService {
      */
 
     public async startXray(
-        data: StartXrayCommand.Request,
+        data: TStartCoreRequest,
         opts: INodeConnectionOpts,
     ): Promise<TResult<StartXrayCommand.Response>> {
         const { url, httpsAgent } = this.resolveAgentAndUrl(StartXrayCommand.url, opts);
@@ -407,7 +413,7 @@ export class AxiosService {
      */
 
     public async addUser(
-        data: AddUserCommand.Request,
+        data: TAddUserToNodeRequest,
         opts: INodeConnectionOpts,
     ): Promise<TResult<AddUserCommand.Response>> {
         const { url, httpsAgent } = this.resolveAgentAndUrl(AddUserCommand.url, opts);
@@ -461,7 +467,7 @@ export class AxiosService {
     }
 
     public async addUsers(
-        data: AddUsersCommand.Request,
+        data: TAddUsersToNodeRequest,
         opts: INodeConnectionOpts,
     ): Promise<TResult<AddUsersCommand.Response>> {
         const { url, httpsAgent } = this.resolveAgentAndUrl(AddUsersCommand.url, opts);

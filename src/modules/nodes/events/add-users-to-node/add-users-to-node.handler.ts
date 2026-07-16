@@ -2,8 +2,7 @@ import { Logger } from '@nestjs/common';
 import { IEventHandler, QueryBus } from '@nestjs/cqrs';
 import { EventsHandler } from '@nestjs/cqrs';
 
-import { AddUsersCommand as AddUsersToNodeCommandSdk } from '@remnawave/node-contract';
-
+import { TAddUsersToNodeRequest } from '@common/axios';
 import { isSS2022Method } from '@common/helpers/xray-config/ss-cipher';
 import { getVlessFlowFromDbInbound } from '@common/utils/flow/get-vless-flow';
 
@@ -50,7 +49,7 @@ export class AddUsersToNodeHandler implements IEventHandler<AddUsersToNodeEvent>
             for (const node of activeNodes) {
                 const activeTags = new Set(node.activeInbounds.map((ib) => ib.tag));
 
-                const usersForNode: AddUsersToNodeCommandSdk.Request['users'] = [];
+                const usersForNode: TAddUsersToNodeRequest['users'] = [];
                 const usersToRemove: Array<{ userId: string; hashUuid: string }> = [];
 
                 for (const user of usersResult.response) {
@@ -93,6 +92,8 @@ export class AddUsersToNodeHandler implements IEventHandler<AddUsersToNodeEvent>
                                 case 'shadowsocks':
                                     return { type: inboundType, tag: inbound.tag };
                                 case 'shadowsocks22':
+                                    return { type: inboundType, tag: inbound.tag };
+                                case 'anytls':
                                     return { type: inboundType, tag: inbound.tag };
                                 default:
                                     throw new Error(`Unsupported inbound type: ${inboundType}`);

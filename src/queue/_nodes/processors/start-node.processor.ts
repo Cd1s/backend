@@ -206,6 +206,7 @@ export class StartNodeProcessor extends WorkerHost {
 
             const startNodeResult = await this.axios.startXray(
                 {
+                    coreType: config.response.coreType,
                     xrayConfig: config.response.config as unknown as Record<string, unknown>,
                     internals: {
                         hashes: config.response.hashesPayload,

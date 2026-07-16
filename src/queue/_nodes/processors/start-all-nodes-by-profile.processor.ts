@@ -8,7 +8,12 @@ import { CommandBus, QueryBus } from '@nestjs/cqrs';
 
 import { AxiosService } from '@common/axios/axios.service';
 import { RawCacheService } from '@common/raw-cache';
-import { CACHE_KEYS, CACHE_KEYS_TTL } from '@libs/contracts/constants';
+import {
+    CACHE_KEYS,
+    CACHE_KEYS_TTL,
+    CONFIG_PROFILE_CORE_TYPE,
+    TConfigProfileCoreType,
+} from '@libs/contracts/constants';
 
 import { ConfigProfileInboundEntity } from '@modules/config-profiles/entities';
 import { NodePluginEntity } from '@modules/node-plugins/entities';
@@ -282,15 +287,19 @@ export class StartAllNodesByProfileQueueProcessor extends WorkerHost {
                 const filteredInboundsHashes = config.response.hashesPayload.inbounds.filter(
                     (inbound) => activeNodeInboundsTags.has(inbound.tag),
                 );
+                const coreConfig = config.response.config as {
+                    inbounds?: Record<string, unknown>[];
+                };
 
                 const startXrayResponse = await this.axios.startXray(
                     {
+                        coreType: config.response.coreType,
                         xrayConfig: {
-                            ...config.response.config,
-                            inbounds: config.response.config.inbounds!.filter(
+                            ...coreConfig,
+                            inbounds: (coreConfig.inbounds ?? []).filter(
                                 (inbound) =>
-                                    activeNodeInboundsTags.has(inbound.tag!) ||
-                                    this.isUnsecureInbound(inbound.protocol),
+                                    activeNodeInboundsTags.has(String(inbound.tag)) ||
+                                    !this.isManagedInbound(config.response.coreType, inbound),
                             ),
                         } as unknown as Record<string, unknown>,
                         internals: {
@@ -375,7 +384,15 @@ export class StartAllNodesByProfileQueueProcessor extends WorkerHost {
         }
     }
 
-    private isUnsecureInbound(protocol: string): boolean {
-        return ['dokodemo-door', 'http', 'mixed', 'tun', 'tunnel', 'wireguard'].includes(protocol);
+    private isManagedInbound(
+        coreType: TConfigProfileCoreType,
+        inbound: Record<string, unknown>,
+    ): boolean {
+        const protocol =
+            coreType === CONFIG_PROFILE_CORE_TYPE.SINGBOX ? inbound.type : inbound.protocol;
+
+        return coreType === CONFIG_PROFILE_CORE_TYPE.SINGBOX
+            ? ['anytls', 'shadowsocks', 'trojan', 'vless'].includes(String(protocol))
+            : ['hysteria', 'shadowsocks', 'trojan', 'vless'].includes(String(protocol));
     }
 }
