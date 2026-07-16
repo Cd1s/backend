@@ -58,7 +58,7 @@ jobs:
       - name: Resolve frontend commit
         id: frontend
         run: |
-          echo "sha=$(git ls-remote https://github.com/Cd1s/frontend.git refs/heads/singbox | cut -f1)" \
+          echo "sha=$(git ls-remote https://github.com/Cd1s/remnawave-frontend.git refs/heads/singbox | cut -f1)" \
             >> "$GITHUB_OUTPUT"
 
       - name: Resolve build time
@@ -75,7 +75,7 @@ jobs:
             ${{ env.IMAGE }}:singbox
             ${{ env.IMAGE }}:sha-${{ github.sha }}
           build-args: |
-            FRONTEND_REPO=https://github.com/Cd1s/frontend.git
+            FRONTEND_REPO=https://github.com/Cd1s/remnawave-frontend.git
             FRONTEND_REF=${{ steps.frontend.outputs.sha }}
             __RW_METADATA_VERSION=2.8.1-singbox
             __RW_METADATA_GIT_BACKEND_COMMIT=${{ github.sha }}

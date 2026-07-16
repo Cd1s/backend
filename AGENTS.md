@@ -4,7 +4,7 @@
 
 This is the backend fork for the Remnawave dual-core project.
 
-- Fork: `Cd1s/backend`
+- Fork: `Cd1s/remnawave-backend`
 - Maintained branch: `singbox`
 - Upstream: `remnawave/backend` branch `main`
 - Published artifact: `ghcr.io/cd1s/remnawave-backend`

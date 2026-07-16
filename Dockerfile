@@ -1,7 +1,7 @@
 FROM node:24.18-trixie-slim AS frontend
 WORKDIR /opt/frontend
 
-ARG FRONTEND_REPO=https://github.com/Cd1s/frontend.git
+ARG FRONTEND_REPO=https://github.com/Cd1s/remnawave-frontend.git
 ARG FRONTEND_REF=singbox
 
 RUN apt-get update \
@@ -51,11 +51,11 @@ FROM node:24.18-trixie-slim
 
 LABEL org.opencontainers.image.title="Remnawave Dual Core"
 LABEL org.opencontainers.image.description="Remnawave with Xray, sing-box and AnyTLS support"
-LABEL org.opencontainers.image.url="https://github.com/Cd1s/backend"
-LABEL org.opencontainers.image.source="https://github.com/Cd1s/backend"
+LABEL org.opencontainers.image.url="https://github.com/Cd1s/remnawave-backend"
+LABEL org.opencontainers.image.source="https://github.com/Cd1s/remnawave-backend"
 LABEL org.opencontainers.image.vendor="Cd1s"
 LABEL org.opencontainers.image.licenses="AGPL-3.0"
-LABEL org.opencontainers.image.documentation="https://docs.rw"
+LABEL org.opencontainers.image.documentation="https://github.com/Cd1s/remnawave-panel"
 
 WORKDIR /opt/app
 
