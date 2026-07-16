@@ -92,7 +92,7 @@ export class NodeHealthCheckQueueProcessor extends WorkerHost {
         stats: GetSystemStatsCommand.Response['response'],
     ) {
         if (stats.xrayInfo === null) {
-            this.logger.error(`Node ${nodeUuid} – xrayInfo is null`);
+            this.logger.error(`Node ${nodeUuid} – active core stats are missing`);
 
             await this.commandBus.execute(
                 new UpdateNodeCommand({

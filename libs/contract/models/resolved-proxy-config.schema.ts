@@ -85,6 +85,10 @@ export const HysteriaProtocolOptionsSchema = z.object({
     version: z.number().int(),
 });
 
+export const AnyTlsProtocolOptionsSchema = z.object({
+    password: z.string(),
+});
+
 export const HysteriaTransportOptionsSchema = z.object({
     version: z.number().int(),
     auth: z.string(),
@@ -130,11 +134,17 @@ const HysteriaProtocolSchema = z.object({
     protocolOptions: HysteriaProtocolOptionsSchema,
 });
 
+const AnyTlsProtocolSchema = z.object({
+    protocol: z.literal('anytls'),
+    protocolOptions: AnyTlsProtocolOptionsSchema,
+});
+
 export const ProtocolVariantSchema = z.discriminatedUnion('protocol', [
     VlessProtocolSchema,
     TrojanProtocolSchema,
     ShadowsocksProtocolSchema,
     HysteriaProtocolSchema,
+    AnyTlsProtocolSchema,
 ]);
 
 const TcpTransportSchema = z.object({
@@ -222,12 +232,13 @@ export const ResolvedProxyConfigSchema = z.object({
     address: z.string(),
     port: z.number().int().positive(),
 
-    protocol: z.enum(['vless', 'trojan', 'shadowsocks', 'hysteria']),
+    protocol: z.enum(['vless', 'trojan', 'shadowsocks', 'hysteria', 'anytls']),
     protocolOptions: z.union([
         VlessProtocolOptionsSchema,
         TrojanProtocolOptionsSchema,
         ShadowsocksProtocolOptionsSchema,
         HysteriaProtocolOptionsSchema,
+        AnyTlsProtocolOptionsSchema,
     ]),
 
     transport: z.enum(['tcp', 'xhttp', 'ws', 'httpupgrade', 'grpc', 'kcp', 'hysteria']),

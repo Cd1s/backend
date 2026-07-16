@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { CONFIG_PROFILE_CORE_TYPE } from '../constants';
 import { ConfigProfileInboundsSchema } from './config-profile-inbounds.schema';
 import { PartialInfraProviderSchema } from './infra-provider.schema';
 import { NodeSystemSchema } from './node-system.schema';
@@ -51,10 +52,16 @@ export const NodesSchema = z.object({
     system: z.nullable(NodeSystemSchema),
     versions: z.nullable(
         z.object({
+            coreType: z
+                .enum([CONFIG_PROFILE_CORE_TYPE.XRAY, CONFIG_PROFILE_CORE_TYPE.SINGBOX])
+                .optional(),
+            core: z.string().optional(),
             xray: z.string(),
+            singbox: z.string().optional(),
             node: z.string(),
         }),
     ),
+    coreUptime: z.number(),
     xrayUptime: z.number(),
     usersOnline: z.number(),
     note: z.nullable(z.string()),

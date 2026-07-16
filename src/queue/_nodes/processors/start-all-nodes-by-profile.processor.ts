@@ -348,7 +348,13 @@ export class StartAllNodesByProfileQueueProcessor extends WorkerHost {
                                 value:
                                     nodeResponse.nodeInformation.version && nodeResponse.version
                                         ? {
+                                              coreType: config.response.coreType,
+                                              core: nodeResponse.version,
                                               xray: nodeResponse.version,
+                                              ...(config.response.coreType ===
+                                                  CONFIG_PROFILE_CORE_TYPE.SINGBOX && {
+                                                  singbox: nodeResponse.version,
+                                              }),
                                               node: nodeResponse.nodeInformation.version,
                                           }
                                         : null,

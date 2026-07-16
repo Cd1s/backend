@@ -39,6 +39,8 @@ export class NodeResponseModel {
     public provider: InfraProviderEntity | null;
     public activePluginUuid: string | null;
 
+    public coreUptime: number;
+    /** @deprecated Use coreUptime. Kept for API compatibility. */
     public xrayUptime: number;
     public usersOnline: number;
     public system: INodeSystem | null;
@@ -82,6 +84,7 @@ export class NodeResponseModel {
         this.system = hotCache.system;
         this.usersOnline = hotCache.onlineUsers;
         this.versions = hotCache.versions;
+        this.coreUptime = hotCache.xrayUptime;
         this.xrayUptime = hotCache.xrayUptime;
     }
 }

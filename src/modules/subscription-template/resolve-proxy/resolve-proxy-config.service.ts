@@ -47,6 +47,25 @@ import {
 } from './interfaces';
 import { override, toNonEmptyRecord } from './utils';
 
+interface ISingBoxInbound {
+    type: string;
+    tag?: string;
+    method?: string;
+    network?: string | string[];
+    tls?: {
+        enabled?: boolean;
+        server_name?: string;
+        alpn?: string[];
+    };
+    transport?: {
+        type?: string;
+        host?: string | string[];
+        path?: string;
+        headers?: Record<string, string | string[]>;
+        service_name?: string;
+    };
+}
+
 export interface IResolveProxyConfigOptions {
     subscriptionSettings: SubscriptionSettingsEntity | null;
     hosts: HostWithRawInbound[];
@@ -477,10 +496,53 @@ export class ResolveProxyConfigService {
 
     private resolveProtocolOptions(
         inputHost: HostWithRawInbound,
-        inbound: InboundConfig,
+        inbound: InboundConfig | ISingBoxInbound,
         user: UserEntity,
         encryption?: string,
     ): ProtocolVariant | null {
+        if (this.isSingBoxInbound(inbound)) {
+            switch (inbound.type) {
+                case 'anytls':
+                    return {
+                        protocol: 'anytls',
+                        protocolOptions: {
+                            password: user.vlessUuid,
+                        },
+                    };
+                case 'vless':
+                    return {
+                        protocol: 'vless',
+                        protocolOptions: {
+                            id: setVlessRouteForUuid(user.vlessUuid, inputHost.vlessRouteId),
+                            encryption: 'none',
+                            flow: '',
+                        },
+                    };
+                case 'trojan':
+                    return {
+                        protocol: 'trojan',
+                        protocolOptions: {
+                            password: user.trojanPassword,
+                        },
+                    };
+                case 'shadowsocks':
+                    return {
+                        protocol: 'shadowsocks',
+                        protocolOptions: {
+                            method: inbound.method || 'chacha20-ietf-poly1305',
+                            password: getSsPassword(
+                                user.ssPassword,
+                                isSS2022MethodFromMethod(inbound.method),
+                            ),
+                            uot: false,
+                            uotVersion: 1,
+                        },
+                    };
+                default:
+                    return null;
+            }
+        }
+
         if (!inbound.settings) {
             return null;
         }
@@ -534,7 +596,7 @@ export class ResolveProxyConfigService {
 
     private buildResolvedProxyConfig(ctx: {
         inputHost: HostWithRawInbound;
-        inbound: InboundConfig;
+        inbound: InboundConfig | ISingBoxInbound;
         finalRemark: string;
         user: UserEntity;
         publicKeyMap: Map<string, string>;
@@ -556,18 +618,23 @@ export class ResolveProxyConfigService {
             return null;
         }
 
-        const transport = this.resolveTransport(inbound.streamSettings, inputHost, protocol, {
-            vlessUuid: user.vlessUuid,
-        });
+        const isSingBoxInbound = this.isSingBoxInbound(inbound);
+        const transport = isSingBoxInbound
+            ? this.resolveSingBoxTransport(inbound, inputHost)
+            : this.resolveTransport(inbound.streamSettings, inputHost, protocol, {
+                  vlessUuid: user.vlessUuid,
+              });
 
-        const security = this.resolveSecurity(
-            inbound.streamSettings,
-            inputHost,
-            inbound.tag!,
-            ctx.publicKeyMap,
-            ctx.mldsa65PublicKeyMap,
-            address,
-        );
+        const security = isSingBoxInbound
+            ? this.resolveSingBoxSecurity(inbound, inputHost, address)
+            : this.resolveSecurity(
+                  inbound.streamSettings,
+                  inputHost,
+                  inbound.tag!,
+                  ctx.publicKeyMap,
+                  ctx.mldsa65PublicKeyMap,
+                  address,
+              );
 
         return {
             finalRemark: finalRemark,
@@ -576,7 +643,7 @@ export class ResolveProxyConfigService {
             streamOverrides: {
                 finalMask: override(
                     toNonEmptyRecord(inputHost.finalMask),
-                    toNonEmptyRecord(inbound.streamSettings?.finalmask),
+                    isSingBoxInbound ? null : toNonEmptyRecord(inbound.streamSettings?.finalmask),
                 ),
                 sockopt: toNonEmptyRecord(inputHost.sockoptParams),
             },
@@ -608,6 +675,116 @@ export class ResolveProxyConfigService {
             ...security,
             ...transport,
         } satisfies ResolvedProxyConfig;
+    }
+
+    private isSingBoxInbound(inbound: InboundConfig | ISingBoxInbound): inbound is ISingBoxInbound {
+        return (
+            'type' in inbound &&
+            typeof inbound.type === 'string' &&
+            (!('protocol' in inbound) || inbound.protocol === undefined)
+        );
+    }
+
+    private resolveSingBoxTransport(
+        inbound: ISingBoxInbound,
+        inputHost: HostWithRawInbound,
+    ): TransportVariant {
+        const transport = inbound.transport;
+
+        switch (transport?.type) {
+            case 'ws': {
+                const rawHost = Array.isArray(transport.headers?.Host)
+                    ? transport.headers.Host[0]
+                    : transport.headers?.Host;
+                return {
+                    transport: 'ws',
+                    transportOptions: {
+                        path: override(inputHost.path, transport.path),
+                        host: this.resolveRandomizedValue(override(inputHost.host, rawHost) ?? ''),
+                        headers: this.normalizeSingBoxHeaders(transport.headers),
+                        heartbeatPeriod: null,
+                    },
+                };
+            }
+            case 'httpupgrade': {
+                const rawHost = Array.isArray(transport.host) ? transport.host[0] : transport.host;
+                return {
+                    transport: 'httpupgrade',
+                    transportOptions: {
+                        path: override(inputHost.path, transport.path),
+                        host: this.resolveRandomizedValue(override(inputHost.host, rawHost) ?? ''),
+                        headers: this.normalizeSingBoxHeaders(transport.headers),
+                    },
+                };
+            }
+            case 'grpc':
+                return {
+                    transport: 'grpc',
+                    transportOptions: {
+                        authority: null,
+                        serviceName: override(inputHost.path, transport.service_name),
+                        multiMode: false,
+                    },
+                };
+            default:
+                return {
+                    transport: 'tcp',
+                    transportOptions: {
+                        header: null,
+                    },
+                };
+        }
+    }
+
+    private resolveSingBoxSecurity(
+        inbound: ISingBoxInbound,
+        inputHost: HostWithRawInbound,
+        resolvedAddress: string,
+    ): SecurityVariant {
+        const tlsEnabled =
+            inbound.type === 'anytls' ||
+            (inputHost.securityLayer === SECURITY_LAYERS.DEFAULT
+                ? inbound.tls?.enabled === true
+                : inputHost.securityLayer === SECURITY_LAYERS.TLS);
+
+        if (!tlsEnabled) {
+            return {
+                security: 'none',
+            };
+        }
+
+        const rawAlpn = Array.isArray(inbound.tls?.alpn) ? inbound.tls.alpn.join(',') : null;
+
+        return {
+            security: 'tls',
+            securityOptions: {
+                alpn: override(inputHost.alpn, rawAlpn),
+                enableSessionResumption: false,
+                fingerprint: inputHost.fingerprint ?? 'chrome',
+                serverName: this.resolveFinalServerName(
+                    inputHost,
+                    inbound.tls?.server_name,
+                    resolvedAddress,
+                ),
+                echConfigList: null,
+                echForceQuery: null,
+                pinnedPeerCertSha256: inputHost.pinnedPeerCertSha256,
+                verifyPeerCertByName: inputHost.verifyPeerCertByName,
+            },
+        };
+    }
+
+    private normalizeSingBoxHeaders(
+        headers: Record<string, string | string[]> | undefined,
+    ): Record<string, string> | null {
+        if (!headers) return null;
+
+        return Object.fromEntries(
+            Object.entries(headers).map(([key, value]) => [
+                key,
+                Array.isArray(value) ? value.join(',') : value,
+            ]),
+        );
     }
 
     private resolveRandomizedValue(value: string): string {

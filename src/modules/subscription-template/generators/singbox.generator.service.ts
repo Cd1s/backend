@@ -52,8 +52,8 @@ interface TransportConfig {
 }
 
 const UNSUPPORTED_TRANSPORTS = new Set(['hysteria', 'kcp', 'xhttp']);
-const PROXY_PROTOCOL_TYPES = new Set(['hysteria', 'shadowsocks', 'trojan', 'vless']);
-const SELECTOR_TYPES = new Set(['shadowsocks', 'trojan', 'urltest', 'vless']);
+const PROXY_PROTOCOL_TYPES = new Set(['anytls', 'hysteria', 'shadowsocks', 'trojan', 'vless']);
+const SELECTOR_TYPES = new Set(['anytls', 'shadowsocks', 'trojan', 'urltest', 'vless']);
 
 @Injectable()
 export class SingBoxGeneratorService {
@@ -130,6 +130,10 @@ export class SingBoxGeneratorService {
                     version: host.protocolOptions.uotVersion,
                 };
                 return true;
+
+            case 'anytls':
+                config.password = host.protocolOptions.password;
+                return host.security === 'tls';
 
             default:
                 return false;

@@ -1,7 +1,12 @@
+import { TConfigProfileCoreType } from '@libs/contracts/constants';
+
 import { INodeSystem } from './node-host-info.interface';
 
 export interface INodeVersions {
+    coreType?: TConfigProfileCoreType;
+    core?: string;
     xray: string;
+    singbox?: string;
     node: string;
 }
 

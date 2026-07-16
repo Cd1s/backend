@@ -35,6 +35,8 @@ type GrpcConfig = Extract<ResolvedProxyConfig, { transport: 'grpc' }>;
 type KcpConfig = Extract<ResolvedProxyConfig, { transport: 'kcp' }>;
 type HysteriaTransportConfig = Extract<ResolvedProxyConfig, { transport: 'hysteria' }>;
 
+const UNSUPPORTED_PROTOCOLS = new Set(['anytls']);
+
 type TransportBuilderMap = {
     hysteria: (host: HysteriaTransportConfig) => Record<string, unknown>;
     ws: (host: WsConfig) => Record<string, unknown>;
@@ -210,6 +212,7 @@ export class XrayJsonGeneratorService {
             for (const host of hosts) {
                 if (host.metadata.isHidden) continue;
                 if (host.metadata.excludeFromSubscriptionTypes.includes('XRAY_JSON')) continue;
+                if (UNSUPPORTED_PROTOCOLS.has(host.protocol)) continue;
 
                 const baseTemplate = ignoreHostXrayJsonTemplate
                     ? templateContent
@@ -322,6 +325,8 @@ export class XrayJsonGeneratorService {
                 return PROTOCOL_BUILDERS.shadowsocks(host);
             case 'hysteria':
                 return PROTOCOL_BUILDERS.hysteria(host);
+            case 'anytls':
+                throw new Error('AnyTLS is not supported by Xray JSON subscriptions.');
         }
     }
 
@@ -362,6 +367,8 @@ export class XrayJsonGeneratorService {
             useHostTagAsTag,
         }: { tagPrefix?: string; useHostRemarkAsTag?: boolean; useHostTagAsTag?: boolean },
     ): Outbound[] {
+        hosts = hosts.filter((host) => !UNSUPPORTED_PROTOCOLS.has(host.protocol));
+
         if (useHostRemarkAsTag) {
             return hosts.map((h) => this.buildOutbound(h, h.finalRemark));
         }

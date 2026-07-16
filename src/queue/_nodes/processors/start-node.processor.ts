@@ -9,7 +9,12 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { AxiosService } from '@common/axios/axios.service';
 import { RawCacheService } from '@common/raw-cache';
 import { formatExecutionTime, getTime } from '@common/utils/get-elapsed-time';
-import { CACHE_KEYS, CACHE_KEYS_TTL, EVENTS } from '@libs/contracts/constants';
+import {
+    CACHE_KEYS,
+    CACHE_KEYS_TTL,
+    CONFIG_PROFILE_CORE_TYPE,
+    EVENTS,
+} from '@libs/contracts/constants';
 
 import { NodeEvent } from '@integration-modules/notifications/interfaces';
 
@@ -248,7 +253,13 @@ export class StartNodeProcessor extends WorkerHost {
                     value:
                         nodeResponse.nodeInformation.version && nodeResponse.version
                             ? {
+                                  coreType: config.response.coreType,
+                                  core: nodeResponse.version,
                                   xray: nodeResponse.version,
+                                  ...(config.response.coreType ===
+                                      CONFIG_PROFILE_CORE_TYPE.SINGBOX && {
+                                      singbox: nodeResponse.version,
+                                  }),
                                   node: nodeResponse.nodeInformation.version,
                               }
                             : null,
