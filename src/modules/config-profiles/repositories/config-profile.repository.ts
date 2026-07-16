@@ -1,14 +1,11 @@
 import { TransactionHost } from '@nestjs-cls/transactional';
 import { TransactionalAdapterPrisma } from '@nestjs-cls/transactional-adapter-prisma';
 import { Prisma } from '@prisma/client';
-import { ExpressionBuilder, sql } from 'kysely';
-import { jsonArrayFrom } from 'kysely/helpers/postgres';
-import { DB } from 'prisma/generated/types';
+import { sql } from 'kysely';
 
 import { Injectable } from '@nestjs/common';
 
 import { TxKyselyService } from '@common/database';
-import { getKyselyUuid } from '@common/helpers';
 import { values } from '@common/helpers/kysely/values';
 
 import { ConfigProfileConverter } from '../converters/config-profile.converter';
@@ -108,41 +105,82 @@ export class ConfigProfileRepository {
     }
 
     public async getAllConfigProfiles(): Promise<ConfigProfileWithInboundsAndNodesEntity[]> {
-        const result = await this.qb.kysely
-            .selectFrom('configProfiles')
-            .selectAll('configProfiles')
-            .orderBy('configProfiles.viewPosition', 'asc')
-            .select((eb) => [
-                // inbounds
-                this.includeInbounds(eb),
-                // nodes
-                this.includeNodes(eb),
-            ])
-            .execute();
+        // Kysely's CamelCasePlugin recursively rewrites keys inside JSON columns.
+        // Core configs must remain byte-compatible with their native JSON field names.
+        const result = await this.prisma.tx.configProfiles.findMany({
+            orderBy: {
+                viewPosition: 'asc',
+            },
+            include: {
+                configProfileInbounds: true,
+                nodes: {
+                    orderBy: {
+                        viewPosition: 'asc',
+                    },
+                    select: {
+                        uuid: true,
+                        name: true,
+                        countryCode: true,
+                    },
+                },
+            },
+        });
 
-        return result.map((item) => new ConfigProfileWithInboundsAndNodesEntity(item));
+        return result.map(({ configProfileInbounds, config, ...item }) => {
+            return new ConfigProfileWithInboundsAndNodesEntity({
+                ...item,
+                config: config as object,
+                inbounds: configProfileInbounds.map(
+                    (inbound) =>
+                        new ConfigProfileInboundEntity({
+                            ...inbound,
+                            rawInbound: inbound.rawInbound as object | null,
+                        }),
+                ),
+            });
+        });
     }
 
     public async getConfigProfileByUUID(
         uuid: string,
     ): Promise<ConfigProfileWithInboundsAndNodesEntity | null> {
-        const result = await this.qb.kysely
-            .selectFrom('configProfiles')
-            .selectAll('configProfiles')
-            .where('configProfiles.uuid', '=', getKyselyUuid(uuid))
-            .select((eb) => [
-                // inbounds
-                this.includeInbounds(eb),
-                // nodes
-                this.includeNodes(eb),
-            ])
-            .executeTakeFirst();
+        // Keep config and rawInbound JSON untouched (sing-box uses snake_case fields).
+        const result = await this.prisma.tx.configProfiles.findUnique({
+            where: {
+                uuid,
+            },
+            include: {
+                configProfileInbounds: true,
+                nodes: {
+                    orderBy: {
+                        viewPosition: 'asc',
+                    },
+                    select: {
+                        uuid: true,
+                        name: true,
+                        countryCode: true,
+                    },
+                },
+            },
+        });
 
         if (!result) {
             return null;
         }
 
-        return new ConfigProfileWithInboundsAndNodesEntity(result);
+        const { configProfileInbounds, config, ...item } = result;
+
+        return new ConfigProfileWithInboundsAndNodesEntity({
+            ...item,
+            config: config as object,
+            inbounds: configProfileInbounds.map(
+                (inbound) =>
+                    new ConfigProfileInboundEntity({
+                        ...inbound,
+                        rawInbound: inbound.rawInbound as object | null,
+                    }),
+            ),
+        });
     }
 
     public async createManyConfigProfileInbounds(inbounds: ConfigProfileInboundEntity[]): Promise<{
@@ -199,46 +237,50 @@ export class ConfigProfileRepository {
     public async getInboundsWithSquadsByProfileUuid(
         profileUuid: string,
     ): Promise<ConfigProfileInboundWithSquadsEntity[]> {
-        const result = await this.qb.kysely
-            .selectFrom('configProfileInbounds')
-            .where('configProfileInbounds.profileUuid', '=', getKyselyUuid(profileUuid))
-            .selectAll('configProfileInbounds')
-            .select((eb) => [
-                jsonArrayFrom(
-                    eb
-                        .selectFrom('internalSquadInbounds')
-                        .select(['internalSquadInbounds.internalSquadUuid as uuid'])
-                        .whereRef(
-                            'internalSquadInbounds.inboundUuid',
-                            '=',
-                            'configProfileInbounds.uuid',
-                        ),
-                ).as('activeSquads'),
-            ])
-            .execute();
+        const result = await this.prisma.tx.configProfileInbounds.findMany({
+            where: {
+                profileUuid,
+            },
+            include: {
+                internalSquadInbounds: {
+                    select: {
+                        internalSquadUuid: true,
+                    },
+                },
+            },
+        });
 
-        return result.map((item) => new ConfigProfileInboundWithSquadsEntity(item));
+        return result.map(({ internalSquadInbounds, ...item }) => {
+            return new ConfigProfileInboundWithSquadsEntity({
+                ...item,
+                rawInbound: item.rawInbound as object | null,
+                activeSquads: internalSquadInbounds.map(({ internalSquadUuid }) => ({
+                    uuid: internalSquadUuid,
+                })),
+            });
+        });
     }
 
     public async getAllInbounds(): Promise<ConfigProfileInboundWithSquadsEntity[]> {
-        const result = await this.qb.kysely
-            .selectFrom('configProfileInbounds')
-            .selectAll('configProfileInbounds')
-            .select((eb) => [
-                jsonArrayFrom(
-                    eb
-                        .selectFrom('internalSquadInbounds')
-                        .select(['internalSquadInbounds.internalSquadUuid as uuid'])
-                        .whereRef(
-                            'internalSquadInbounds.inboundUuid',
-                            '=',
-                            'configProfileInbounds.uuid',
-                        ),
-                ).as('activeSquads'),
-            ])
-            .execute();
+        const result = await this.prisma.tx.configProfileInbounds.findMany({
+            include: {
+                internalSquadInbounds: {
+                    select: {
+                        internalSquadUuid: true,
+                    },
+                },
+            },
+        });
 
-        return result.map((item) => new ConfigProfileInboundWithSquadsEntity(item));
+        return result.map(({ internalSquadInbounds, ...item }) => {
+            return new ConfigProfileInboundWithSquadsEntity({
+                ...item,
+                rawInbound: item.rawInbound as object | null,
+                activeSquads: internalSquadInbounds.map(({ internalSquadUuid }) => ({
+                    uuid: internalSquadUuid,
+                })),
+            });
+        });
     }
 
     public async reorderMany(
@@ -268,30 +310,5 @@ export class ConfigProfileRepository {
             .$executeRaw`SELECT setval('config_profiles_view_position_seq', (SELECT MAX(view_position) FROM config_profiles) + 1)`;
 
         return true;
-    }
-
-    /*
-
-    Kysely helpers
-
-    */
-
-    private includeInbounds(eb: ExpressionBuilder<DB, 'configProfiles'>) {
-        return jsonArrayFrom(
-            eb
-                .selectFrom('configProfileInbounds')
-                .selectAll('configProfileInbounds')
-                .whereRef('configProfileInbounds.profileUuid', '=', 'configProfiles.uuid'),
-        ).as('inbounds');
-    }
-
-    private includeNodes(eb: ExpressionBuilder<DB, 'configProfiles'>) {
-        return jsonArrayFrom(
-            eb
-                .selectFrom('nodes')
-                .select(['uuid', 'name', 'countryCode'])
-                .orderBy('nodes.viewPosition', 'asc')
-                .whereRef('nodes.activeConfigProfileUuid', '=', 'configProfiles.uuid'),
-        ).as('nodes');
     }
 }
