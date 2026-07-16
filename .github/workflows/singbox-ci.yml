@@ -33,6 +33,8 @@ jobs:
 
       - run: npm ci --no-audit --no-fund
       - run: npm run build
+      - run: npm run build:seed
+      - run: npm run validate:seed-core-inbounds
       - run: npm run validate:shadowrocket-anytls
       - run: npm run check
 
