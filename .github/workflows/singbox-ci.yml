@@ -48,7 +48,7 @@ jobs:
       - name: Resolve backend version
         id: backend
         run: |
-          backend_version="$(node -p "require('./package.json').version")-singbox"
+          backend_version="$(node -p "require('./package.json').version")"
           echo "version=${backend_version}" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-qemu-action@v3

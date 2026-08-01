@@ -25,6 +25,13 @@ jobs:
           ref: singbox
           fetch-depth: 0
 
+      - name: Resolve official latest release
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          UPSTREAM_REPO: remnawave/backend
+        run: bash .github/scripts/sync-release.sh resolve
+
       - name: Detect and merge upstream
         id: sync
         env:
@@ -45,65 +52,73 @@ jobs:
           if-no-files-found: warn
 
       - name: Validate fork adaptation
-        if: steps.sync.outputs.updated == 'true'
+        if: steps.sync.outcome == 'success'
         run: node scripts/validate-upstream-adaptation.cjs
 
       - uses: actions/setup-node@v4
-        if: steps.sync.outputs.updated == 'true'
+        if: steps.sync.outcome == 'success'
         with:
           node-version: 24
           cache: npm
 
+      - name: Resolve merged package version
+        id: version
+        if: steps.sync.outcome == 'success'
+        env:
+          EXPECTED_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          package_version="$(node -p "require('./package.json').version")"
+          if [ "$package_version" != "$EXPECTED_VERSION" ]; then
+            echo "release_sync=failed reason=package_version_mismatch expected=$EXPECTED_VERSION actual=$package_version" >&2
+            exit 1
+          fi
+          echo "version=$package_version" >> "$GITHUB_OUTPUT"
+
       - run: npm ci --no-audit --no-fund
-        if: steps.sync.outputs.updated == 'true'
+        if: steps.sync.outcome == 'success'
       - run: npm run build
-        if: steps.sync.outputs.updated == 'true'
+        if: steps.sync.outcome == 'success'
       - run: npm run build:seed
-        if: steps.sync.outputs.updated == 'true'
+        if: steps.sync.outcome == 'success'
       - run: npm run validate:seed-core-inbounds
-        if: steps.sync.outputs.updated == 'true'
+        if: steps.sync.outcome == 'success'
       - run: npm run validate:shadowrocket-anytls
-        if: steps.sync.outputs.updated == 'true'
+        if: steps.sync.outcome == 'success'
       - run: npm run check
-        if: steps.sync.outputs.updated == 'true'
+        if: steps.sync.outcome == 'success'
 
       - name: Resolve source commit
         id: source
-        if: steps.sync.outputs.updated == 'true'
+        if: steps.sync.outcome == 'success'
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-
-      - name: Resolve merged package version
-        id: version
-        if: steps.sync.outputs.updated == 'true'
-        run: echo "version=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
 
       - name: Resolve frontend commit
         id: frontend
-        if: steps.sync.outputs.updated == 'true'
+        if: steps.sync.outcome == 'success'
         run: |
           echo "sha=$(git ls-remote https://github.com/Cd1s/remnawave-frontend.git refs/heads/singbox | cut -f1)" \
             >> "$GITHUB_OUTPUT"
 
       - name: Resolve build time
         id: build
-        if: steps.sync.outputs.updated == 'true'
+        if: steps.sync.outcome == 'success'
         run: echo "time=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-qemu-action@v3
-        if: steps.sync.outputs.updated == 'true'
+        if: steps.sync.outcome == 'success'
 
       - uses: docker/setup-buildx-action@v3
-        if: steps.sync.outputs.updated == 'true'
+        if: steps.sync.outcome == 'success'
 
       - uses: docker/login-action@v3
-        if: steps.sync.outputs.updated == 'true'
+        if: steps.sync.outcome == 'success'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: docker/build-push-action@v6
-        if: steps.sync.outputs.updated == 'true'
+        if: steps.sync.outcome == 'success'
         with:
           context: .
           file: Dockerfile
@@ -115,7 +130,7 @@ jobs:
           build-args: |
             FRONTEND_REPO=https://github.com/Cd1s/remnawave-frontend.git
             FRONTEND_REF=${{ steps.frontend.outputs.sha }}
-            __RW_METADATA_VERSION=${{ steps.version.outputs.version }}-singbox
+            __RW_METADATA_VERSION=${{ steps.version.outputs.version }}
             __RW_METADATA_GIT_BACKEND_COMMIT=${{ steps.source.outputs.sha }}
             __RW_METADATA_GIT_FRONTEND_COMMIT=${{ steps.frontend.outputs.sha }}
             __RW_METADATA_GIT_BRANCH=singbox
@@ -125,5 +140,29 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Push tested merge
-        if: steps.sync.outputs.updated == 'true'
+        if: steps.sync.outcome == 'success'
         run: git push origin HEAD:singbox
+
+      - name: Verify pushed final commit
+        if: steps.sync.outcome == 'success'
+        env:
+          EXPECTED_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          remote_sha="$(git ls-remote origin refs/heads/singbox | awk 'NR == 1 { print $1 }')"
+          if [ "$remote_sha" != "$EXPECTED_SHA" ]; then
+            echo "release_sync=failed reason=remote_branch_not_at_final_commit expected=$EXPECTED_SHA actual=${remote_sha:-missing}" >&2
+            exit 1
+          fi
+
+      - name: Sync official fork Release
+        if: steps.sync.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FORK_REPO: ${{ github.repository }}
+          FORK_COMMIT: ${{ steps.source.outputs.sha }}
+          UPSTREAM_REPO: remnawave/backend
+          UPSTREAM_RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          UPSTREAM_RELEASE_URL: ${{ steps.release.outputs.url }}
+          UPSTREAM_RELEASE_VERSION: ${{ steps.release.outputs.version }}
+          CI_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: bash .github/scripts/sync-release.sh sync
