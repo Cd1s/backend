@@ -93,9 +93,19 @@ pass.
 
 ## Upstream synchronization failure
 
-The scheduled workflow merges `upstream/main` in a temporary GitHub Actions checkout, validates the
-result, and pushes only a tested merge. A conflict or failed test leaves `origin/singbox`
-unchanged.
+The scheduled workflow fetches `https://github.com/remnawave/backend.git` `main` into a temporary
+GitHub Actions checkout. It detects updates by commit ancestry, not by `package.json` semver. A
+`git merge-tree` preflight reports overlap and refuses conflicts before changing the checkout. A
+clean merge runs the fork adaptation preflight, then the build, validators, formatter, and linter;
+only that tested merge is pushed and used for image publication. A conflict or failed test leaves
+`origin/singbox` unchanged and produces an auditable report instead of silently choosing one side.
+
+If upstream is already an ancestor, the workflow succeeds without pushing or rebuilding. If
+upstream changed, cleanly merged files that overlap the fork still require all adaptation gates;
+the overlap count is an audit signal, not a waiver. The merged package version is read dynamically
+for image metadata and is never used to decide whether an update exists. See
+`docs/upstream-sync.md` and `docs/custom-feature-registry.md` for the operator behavior and
+backend-owned invariants.
 
 To repair a failure:
 

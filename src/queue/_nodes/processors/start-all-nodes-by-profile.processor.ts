@@ -8,11 +8,7 @@ import { CommandBus, QueryBus } from '@nestjs/cqrs';
 
 import { AxiosService } from '@common/axios/axios.service';
 import { RawCacheService } from '@common/raw-cache';
-import {
-    CACHE_KEYS,
-    CACHE_KEYS_TTL,
-    CONFIG_PROFILE_CORE_TYPE,
-} from '@libs/contracts/constants';
+import { CACHE_KEYS, CACHE_KEYS_TTL, CONFIG_PROFILE_CORE_TYPE } from '@libs/contracts/constants';
 import type { TConfigProfileCoreType } from '@libs/contracts/constants';
 
 import { ConfigProfileInboundEntity } from '@modules/config-profiles/entities';

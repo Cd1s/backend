@@ -8,10 +8,7 @@ import { QueryBus } from '@nestjs/cqrs';
 import { createCoreConfig } from '@common/helpers/core-config';
 import { RawCacheService } from '@common/raw-cache';
 import { fail, ok, TResult } from '@common/types';
-import {
-    CACHE_KEYS,
-    CONFIG_PROFILE_CORE_TYPE,
-} from '@libs/contracts/constants';
+import { CACHE_KEYS, CONFIG_PROFILE_CORE_TYPE } from '@libs/contracts/constants';
 import type { TConfigProfileCoreType } from '@libs/contracts/constants';
 import { ERRORS } from '@libs/contracts/constants/errors';
 

@@ -33,8 +33,10 @@
     "lint:fix": "oxlint --fix",
     "check": "oxfmt --check && oxlint",
     "fix": "oxfmt && oxlint --fix",
+    "sync:upstream": "node scripts/sync-upstream.cjs",
     "validate:shadowrocket-anytls": "node scripts/validate-shadowrocket-anytls.cjs",
-    "validate:seed-core-inbounds": "node scripts/validate-seed-core-inbounds.cjs"
+    "validate:seed-core-inbounds": "node scripts/validate-seed-core-inbounds.cjs",
+    "validate:upstream-adaptation": "node scripts/validate-upstream-adaptation.cjs"
   },
   "dependencies": {
     "@bull-board/api": "8.3.0",
