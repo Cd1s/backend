@@ -67,10 +67,6 @@ jobs:
       - run: npm run check
         if: steps.sync.outputs.updated == 'true'
 
-      - name: Push tested merge
-        if: steps.sync.outputs.updated == 'true'
-        run: git push origin HEAD:singbox
-
       - name: Resolve source commit
         id: source
         if: steps.sync.outputs.updated == 'true'
@@ -127,3 +123,7 @@ jobs:
             __RW_METADATA_BUILD_NUMBER=${{ github.run_number }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Push tested merge
+        if: steps.sync.outputs.updated == 'true'
+        run: git push origin HEAD:singbox
