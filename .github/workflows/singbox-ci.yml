@@ -45,6 +45,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Resolve backend version
+        id: backend
+        run: |
+          backend_version="$(node -p "require('./package.json').version")-singbox"
+          echo "version=${backend_version}" >> "$GITHUB_OUTPUT"
+
       - uses: docker/setup-qemu-action@v3
 
       - uses: docker/setup-buildx-action@v3
@@ -77,7 +83,7 @@ jobs:
           build-args: |
             FRONTEND_REPO=https://github.com/Cd1s/remnawave-frontend.git
             FRONTEND_REF=${{ steps.frontend.outputs.sha }}
-            __RW_METADATA_VERSION=2.8.1-singbox
+            __RW_METADATA_VERSION=${{ steps.backend.outputs.version }}
             __RW_METADATA_GIT_BACKEND_COMMIT=${{ github.sha }}
             __RW_METADATA_GIT_FRONTEND_COMMIT=${{ steps.frontend.outputs.sha }}
             __RW_METADATA_GIT_BRANCH=singbox
