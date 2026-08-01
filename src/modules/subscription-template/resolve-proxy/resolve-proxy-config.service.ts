@@ -434,6 +434,7 @@ export class ResolveProxyConfigService {
                         ),
                         echConfigList: tls?.echConfigList || null,
                         echForceQuery: tls?.echForceQuery || null,
+                        echSockopt: toNonEmptyRecord(tls?.echSockopt),
                         pinnedPeerCertSha256: inputHost.pinnedPeerCertSha256,
                         verifyPeerCertByName: inputHost.verifyPeerCertByName,
                     },
@@ -768,6 +769,7 @@ export class ResolveProxyConfigService {
                 ),
                 echConfigList: null,
                 echForceQuery: null,
+                echSockopt: null,
                 pinnedPeerCertSha256: inputHost.pinnedPeerCertSha256,
                 verifyPeerCertByName: inputHost.verifyPeerCertByName,
             },
@@ -850,9 +852,22 @@ export class ResolveProxyConfigService {
         );
     }
 
+    private parseResolvedProxyConfigFromRemark(remark: string): ResolvedProxyConfig | null {
+        if (!remark.startsWith('{')) {
+            return null;
+        }
+
+        try {
+            return JSON.parse(remark) as ResolvedProxyConfig;
+        } catch {
+            return null;
+        }
+    }
+
     private createFallbackHosts(remarks: string[]): ResolvedProxyConfig[] {
         return remarks.map(
             (remark) =>
+                this.parseResolvedProxyConfigFromRemark(remark.trim()) ??
                 ({
                     finalRemark: remark,
                     address: '0.0.0.0',
@@ -894,7 +909,7 @@ export class ResolveProxyConfigService {
                         vlessRouteId: null,
                         rawInbound: null,
                     },
-                }) satisfies ResolvedProxyConfig,
+                } satisfies ResolvedProxyConfig),
         );
     }
 }

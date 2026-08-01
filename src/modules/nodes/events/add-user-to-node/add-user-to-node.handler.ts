@@ -30,14 +30,14 @@ export class AddUserToNodeHandler implements IEventHandler<AddUserToNodeEvent> {
     async handle(event: AddUserToNodeEvent) {
         try {
             const userEntity = await this.queryBus.execute(
-                new GetUserWithResolvedInboundsQuery(event.userUuid),
+                new GetUserWithResolvedInboundsQuery(event.userId),
             );
 
             if (!userEntity.isOk) {
                 return;
             }
 
-            const { tId, trojanPassword, vlessUuid, ssPassword, inbounds } = userEntity.response;
+            const { id, trojanPassword, vlessUuid, ssPassword, inbounds } = userEntity.response;
 
             if (inbounds.length === 0) {
                 return;
@@ -62,14 +62,14 @@ export class AddUserToNodeHandler implements IEventHandler<AddUserToNodeEvent> {
                         case 'trojan':
                             return {
                                 type: inboundType,
-                                username: tId.toString(),
+                                username: id.toString(),
                                 password: trojanPassword,
                                 tag: inbound.tag,
                             };
                         case 'vless':
                             return {
                                 type: inboundType,
-                                username: tId.toString(),
+                                username: id.toString(),
                                 uuid: vlessUuid,
                                 flow: getVlessFlowFromDbInbound(inbound),
                                 tag: inbound.tag,
@@ -77,7 +77,7 @@ export class AddUserToNodeHandler implements IEventHandler<AddUserToNodeEvent> {
                         case 'shadowsocks':
                             return {
                                 type: inboundType,
-                                username: tId.toString(),
+                                username: id.toString(),
                                 password: ssPassword,
                                 tag: inbound.tag,
                                 cipherType: getCipherTypeFromString(inbound.rawInbound),
@@ -86,21 +86,21 @@ export class AddUserToNodeHandler implements IEventHandler<AddUserToNodeEvent> {
                         case 'shadowsocks22':
                             return {
                                 type: inboundType,
-                                username: tId.toString(),
+                                username: id.toString(),
                                 password: getSsPassword(ssPassword, true),
                                 tag: inbound.tag,
                             };
                         case 'hysteria':
                             return {
                                 type: inboundType,
-                                username: tId.toString(),
+                                username: id.toString(),
                                 password: vlessUuid,
                                 tag: inbound.tag,
                             };
                         case 'anytls':
                             return {
                                 type: inboundType,
-                                username: tId.toString(),
+                                username: id.toString(),
                                 password: vlessUuid,
                                 tag: inbound.tag,
                             };
@@ -125,7 +125,7 @@ export class AddUserToNodeHandler implements IEventHandler<AddUserToNodeEvent> {
                 if (filteredData.data.length === 0) {
                     await this.nodesQueuesService.removeUserFromNode({
                         data: {
-                            username: tId.toString(),
+                            username: id.toString(),
                             hashData: {
                                 vlessUuid: event.prevVlessUuid || vlessUuid,
                             },

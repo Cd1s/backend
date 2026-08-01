@@ -12,8 +12,8 @@ import {
     CACHE_KEYS,
     CACHE_KEYS_TTL,
     CONFIG_PROFILE_CORE_TYPE,
-    TConfigProfileCoreType,
 } from '@libs/contracts/constants';
+import type { TConfigProfileCoreType } from '@libs/contracts/constants';
 
 import { ConfigProfileInboundEntity } from '@modules/config-profiles/entities';
 import { NodePluginEntity } from '@modules/node-plugins/entities';
@@ -331,7 +331,7 @@ export class StartAllNodesByProfileQueueProcessor extends WorkerHost {
 
                         return;
                     case true:
-                        const nodeResponse = startXrayResponse.response.response;
+                        const nodeResponse = startXrayResponse.response;
 
                         await this.rawCacheService.setMany([
                             {

@@ -91,7 +91,7 @@ export class TemplateEngine {
             TAG: () => user.tag || '',
             EXPIRE_UNIX: () => dayjs(user.expireAt).unix(),
             SHORT_UUID: () => user.shortUuid,
-            ID: () => user.tId.toString(),
+            ID: () => user.id.toString(),
             TRAFFIC_USED_BYTES: () => user.userTraffic.usedTrafficBytes.toString(),
             TRAFFIC_LEFT_BYTES: () => trafficLeft().toString(),
             TOTAL_TRAFFIC_BYTES: () => user.trafficLimitBytes.toString(),
@@ -100,8 +100,6 @@ export class TemplateEngine {
             CREATED_AT_UNIX: () => dayjs(user.createdAt).unix(),
             LAST_TRAFFIC_RESET_AT_UNIX: () =>
                 user.lastTrafficResetAt ? dayjs(user.lastTrafficResetAt).unix() : 0,
-            SS_SUPPORT_LINK: () => subscriptionSettings.supportLink,
-            SS_PROFILE_UPDATE_INTERVAL: () => subscriptionSettings.profileUpdateInterval.toString(),
             SS_HWID_LIMIT: () =>
                 (user.hwidDeviceLimit !== null
                     ? user.hwidDeviceLimit

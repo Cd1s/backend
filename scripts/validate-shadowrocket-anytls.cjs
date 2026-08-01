@@ -1,8 +1,10 @@
 const assert = require('node:assert/strict');
 
+require('./register-typescript.cjs');
+
 const {
     XrayGeneratorService,
-} = require('../dist/src/modules/subscription-template/generators/xray.generator.service.js');
+} = require('../src/modules/subscription-template/generators/xray.generator.service.ts');
 
 const service = new XrayGeneratorService();
 const fixture = {
@@ -23,6 +25,7 @@ const fixture = {
         serverName: '147.78.245.53',
         echConfigList: null,
         echForceQuery: null,
+        echSockopt: null,
     },
     transport: 'tcp',
     transportOptions: {

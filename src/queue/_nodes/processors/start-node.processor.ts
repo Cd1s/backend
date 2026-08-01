@@ -241,7 +241,7 @@ export class StartNodeProcessor extends WorkerHost {
                 return;
             }
 
-            const nodeResponse = startNodeResult.response.response;
+            const nodeResponse = startNodeResult.response;
 
             await this.rawCacheService.setMany([
                 {

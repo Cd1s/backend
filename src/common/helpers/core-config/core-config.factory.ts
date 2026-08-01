@@ -1,4 +1,5 @@
-import { CONFIG_PROFILE_CORE_TYPE, TConfigProfileCoreType } from '@libs/contracts/constants';
+import { CONFIG_PROFILE_CORE_TYPE } from '@libs/contracts/constants';
+import type { TConfigProfileCoreType } from '@libs/contracts/constants';
 
 import { XRayConfig } from '../xray-config';
 import { ICoreConfig } from './core-config.interface';

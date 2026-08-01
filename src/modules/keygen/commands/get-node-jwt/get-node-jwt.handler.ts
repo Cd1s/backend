@@ -1,5 +1,6 @@
+import type { IJWTAuthPayload } from 'src/modules/auth/interfaces';
+
 import * as jwt from 'jsonwebtoken';
-import { IJWTAuthPayload } from 'src/modules/auth/interfaces';
 
 import { Logger } from '@nestjs/common';
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';

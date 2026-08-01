@@ -137,13 +137,13 @@ jobs:
           docker buildx imagetools create \
             -t ${{ env.REGISTRY_IMAGE }}:latest \
             -t ${{ env.REGISTRY_IMAGE }}:${{ github.ref_name }} \
-            -t ${{ env.REGISTRY_IMAGE }}:2 \
+            -t ${{ env.REGISTRY_IMAGE }}:3 \
             $(printf '${{ env.REGISTRY_IMAGE }}@sha256:%s ' *)
 
           docker buildx imagetools create \
             -t ${{ env.GHCR_IMAGE }}:latest \
             -t ${{ env.GHCR_IMAGE }}:${{ github.ref_name }} \
-            -t ${{ env.GHCR_IMAGE }}:2 \
+            -t ${{ env.GHCR_IMAGE }}:3 \
             $(printf '${{ env.GHCR_IMAGE }}@sha256:%s ' *)
 
       - name: Inspect image

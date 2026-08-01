@@ -5,7 +5,8 @@ import { HashedSet } from '@remnawave/hashed-set';
 
 import { createCoreConfig, ICoreConfig } from '@common/helpers/core-config';
 import { fail, ok, TResult } from '@common/types';
-import { ERRORS, TConfigProfileCoreType } from '@libs/contracts/constants';
+import { ERRORS } from '@libs/contracts/constants';
+import type { TConfigProfileCoreType } from '@libs/contracts/constants';
 
 import { GetConfigProfileByUuidQuery } from '@modules/config-profiles/queries/get-config-profile-by-uuid';
 import { GetSnippetsQuery } from '@modules/config-profiles/queries/get-snippets';

@@ -23,29 +23,36 @@ RUN npm ci --prefer-offline --no-audit --no-fund \
 FROM node:24.18-trixie-slim AS backend-build
 WORKDIR /opt/app
 
-# RUN apk add python3 python3-dev build-base pkgconfig libunwind-dev
-
-#ENV PRISMA_CLI_BINARY_TARGETS=linux-musl-openssl-3.0.x,linux-musl-arm64-openssl-3.0.x
-ENV PRISMA_CLI_BINARY_TARGETS=debian-openssl-3.0.x,linux-arm64-openssl-3.0.x
-
-
 COPY package*.json ./
 COPY prisma ./prisma
+COPY rspack.config.mjs ./
 COPY prisma.config.ts ./prisma.config.ts
-COPY patches ./patches
-
+COPY @types ./@types
 
 RUN npm ci --prefer-offline --no-audit --no-fund
 
-COPY . .
+COPY tsconfig*.json ./
+COPY src ./src
+COPY libs ./libs
 
-RUN npm run migrate:generate
+RUN npm run migrate:generate \
+    && npm run build \
+    && npm prune --omit=dev \
+    && npm cache clean --force
 
-RUN npm run build
-
-RUN npm cache clean --force 
-
-RUN npm prune --omit=dev
+RUN cd node_modules/@prisma/client/runtime && \
+    find . -maxdepth 1 -type f ! -name 'library.js' ! -name 'package.json' -delete && \
+    cd /opt/app/node_modules/.prisma/client && \
+    find . -maxdepth 1 -type f \
+      \( -name 'edge.*' -o -name 'index-browser.js' -o -name 'wasm.*' \
+         -o -name 'query_engine_bg.*' -o -name '*-loader.mjs' \) -delete && \
+    cd /opt/app && \
+    rm -rf node_modules/typescript \
+           node_modules/effect/dist/esm \
+           node_modules/effect/dist/dts \
+           node_modules/effect/src && \
+    find node_modules \( -name '*.js.map' -o -name '*.mjs.map' \) -delete && \
+    find node_modules \( -name '*.d.ts' -o -name '*.d.cts' -o -name '*.d.mts' \) -delete
 
 FROM node:24.18-trixie-slim
 
@@ -60,7 +67,6 @@ LABEL org.opencontainers.image.documentation="https://github.com/Cd1s/remnawave-
 WORKDIR /opt/app
 
 ARG BRANCH=main
-
 ARG __RW_METADATA_VERSION=1.1.1
 ARG __RW_METADATA_GIT_BACKEND_COMMIT=0f344f388807f5323b49024a563b3f8146d66857
 ARG __RW_METADATA_GIT_FRONTEND_COMMIT=0f344f388807f5323b49024a563b3f8146d66857
@@ -68,24 +74,13 @@ ARG __RW_METADATA_GIT_BRANCH=dev
 ARG __RW_METADATA_BUILD_TIME=2011-11-11T11:11:11Z
 ARG __RW_METADATA_BUILD_NUMBER=0
 
-# Install jemalloc
-# RUN apk add --no-cache jemalloc
-# ENV LD_PRELOAD=/usr/lib/libjemalloc.so.2
-# libunwind
-# Install mimalloc
-#RUN apk add --no-cache mimalloc2 curl
-#ENV LD_PRELOAD=/usr/lib/libmimalloc.so.2
-
-
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
 ENV REMNAWAVE_BRANCH=${BRANCH}
 ENV PRISMA_HIDE_UPDATE_MESSAGE=true
 ENV PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
-
 ENV PM2_DISABLE_VERSION_CHECK=true
 ENV NODE_OPTIONS="--max-old-space-size=16384"
-
 ENV __RW_METADATA_VERSION=${__RW_METADATA_VERSION}
 ENV __RW_METADATA_GIT_BACKEND_COMMIT=${__RW_METADATA_GIT_BACKEND_COMMIT}
 ENV __RW_METADATA_GIT_FRONTEND_COMMIT=${__RW_METADATA_GIT_FRONTEND_COMMIT}
@@ -95,20 +90,26 @@ ENV __RW_METADATA_BUILD_NUMBER=${__RW_METADATA_BUILD_NUMBER}
 
 COPY --from=backend-build /opt/app/dist ./dist
 COPY --from=frontend /opt/frontend/dist ./frontend
-COPY --from=backend-build /opt/app/prisma ./prisma
+COPY --from=backend-build /opt/app/prisma/generated ./prisma/generated
+COPY --from=backend-build /opt/app/prisma/migrations ./prisma/migrations
+COPY --from=backend-build /opt/app/prisma/schema.prisma ./prisma/schema.prisma
 COPY --from=backend-build /opt/app/node_modules ./node_modules
 
 COPY configs /var/lib/remnawave/configs
 COPY package*.json ./
 COPY prisma.config.ts ./prisma.config.ts
-
 COPY ecosystem.config.js ./
 COPY docker-entrypoint.sh ./
 
-RUN npm install pm2 -g \
-    && npm link
-
+RUN npm install -g pm2 \
+    && chmod +x /opt/app/dist/cli.js \
+    && ln -s /opt/app/dist/cli.js /usr/local/bin/cli \
+    && rm -rf /usr/local/lib/node_modules/npm \
+        /usr/local/lib/node_modules/corepack \
+        /usr/local/bin/npm \
+        /usr/local/bin/npx \
+        /usr/local/bin/corepack \
+        /usr/local/include/node
 
 ENTRYPOINT [ "/bin/sh", "docker-entrypoint.sh" ]
-
 CMD [ "pm2-runtime", "start", "ecosystem.config.js", "--env", "production" ]

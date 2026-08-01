@@ -1,9 +1,11 @@
 const assert = require('node:assert/strict');
 
+require('./register-typescript.cjs');
+
 const {
     createCoreConfig,
-} = require('../dist/src/common/helpers/core-config/core-config.factory.js');
-const { syncInbounds } = require('../dist/prisma/seed/seeders/6_sync-inbounds.js');
+} = require('../src/common/helpers/core-config/core-config.factory.ts');
+const { syncInbounds } = require('../prisma/seed/seeders/6_sync-inbounds.ts');
 
 const fixture = {
     inbounds: [

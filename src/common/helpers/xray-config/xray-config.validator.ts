@@ -18,7 +18,12 @@ import { getVlessFlow } from '@common/utils/flow/get-vless-flow';
 
 import { UserForConfigEntity } from '@modules/users/entities/users-for-config';
 
-import { getSsPassword, isSS2022MethodFromMethod, SHADOWSOCKS_METHODS } from './ss-cipher';
+import {
+    getDecodedKeySize,
+    getSsPassword,
+    isSS2022MethodFromMethod,
+    SHADOWSOCKS_METHODS,
+} from './ss-cipher';
 
 const MANAGED_CLIENT_PROTOCOLS = new Set(['hysteria', 'shadowsocks', 'trojan', 'vless']);
 type ManagedInboundSettings = VLessInboundConfig | TrojanInboundConfig | ShadowsocksInboundConfig;
@@ -233,7 +238,7 @@ export class XRayConfig {
                 for (const user of users) {
                     inbound.settings.clients.push({
                         password: user.trojanPassword,
-                        email: user.tId.toString(),
+                        email: user.id.toString(),
                         id: user.vlessUuid,
                     });
                 }
@@ -248,7 +253,7 @@ export class XRayConfig {
                 for (const user of users) {
                     inbound.settings.clients.push({
                         id: user.vlessUuid,
-                        email: user.tId.toString(),
+                        email: user.id.toString(),
                     });
                 }
                 break;
@@ -263,7 +268,7 @@ export class XRayConfig {
                     inbound.settings.clients.push({
                         id: user.vlessUuid,
                         auth: user.vlessUuid,
-                        email: user.tId.toString(),
+                        email: user.id.toString(),
                     });
                 }
                 break;
@@ -281,7 +286,7 @@ export class XRayConfig {
                     inbound.settings.clients.push({
                         password: getSsPassword(user.ssPassword, isSS2022),
                         ...(!isSS2022 && { method: method || 'chacha20-ietf-poly1305' }),
-                        email: user.tId.toString(),
+                        email: user.id.toString(),
                         id: user.vlessUuid,
                     });
                 }
@@ -376,6 +381,10 @@ export class XRayConfig {
             throw new Error("Config doesn't have inbounds.");
         }
 
+        if (!this.config.outbounds || this.config.outbounds.length === 0) {
+            throw new Error("Config doesn't have outbounds.");
+        }
+
         const seenTags = new Set<string>();
 
         for (const inbound of this.config.inbounds) {
@@ -446,10 +455,11 @@ export class XRayConfig {
                         '(inbound → settings → password – generate with: openssl rand -base64 32)',
                 );
             }
-            if (settings.password.length < 32) {
+            // https://xtls.github.io/config/inbounds/shadowsocks.html#inboundconfigurationobject
+            if (getDecodedKeySize(settings.password) !== 32) {
                 throw new Error(
-                    'Shadowsocks password must be at least 32 characters long for 2022-blake3-* methods. ' +
-                        '(inbound → settings → password – generate with: openssl rand -base64 32)',
+                    `Shadowsocks password for "${method}" must be a base64 string that decodes to exactly 32 bytes. ` +
+                        `(inbound → settings → password – generate with: openssl rand -base64 32)`,
                 );
             }
         }

@@ -26,7 +26,7 @@ export class SnippetsService {
         }
     }
 
-    public async deleteSnippetByName(name: string): Promise<TResult<GetSnippetsResponseModel>> {
+    public async deleteSnippetByName(name: string): Promise<TResult<boolean>> {
         try {
             const snippet = await this.snippetsRepository.findByName(name);
 
@@ -36,7 +36,7 @@ export class SnippetsService {
 
             await this.snippetsRepository.deleteByName(name);
 
-            return await this.getSnippets();
+            return ok(true);
         } catch (error) {
             this.logger.error(error);
             return fail(ERRORS.DELETE_SNIPPET_BY_NAME_ERROR);

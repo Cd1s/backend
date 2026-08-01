@@ -151,7 +151,7 @@ export class SingBoxConfig implements ICoreConfig {
     }
 
     private toSingBoxUser(inbound: ISingBoxInbound, user: UserForConfigEntity): TJsonRecord {
-        const name = user.tId.toString();
+        const name = user.id.toString();
 
         switch (inbound.type) {
             case 'anytls':

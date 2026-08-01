@@ -2,10 +2,14 @@ import { Job } from 'bullmq';
 import pMap from 'p-map';
 
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Logger, Scope } from '@nestjs/common';
+import { Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { QueryBus } from '@nestjs/cqrs';
 
 import { AxiosService } from '@common/axios/axios.service';
+import { TypedConfigService } from '@common/config/app-config';
+import { RawCacheService } from '@common/raw-cache';
+import { EXPORT_TO_STREAM_KEYS } from '@libs/contracts/constants';
+import { NODE_CONNECTIONS_STREAM_MESSAGE_VERSION } from '@libs/contracts/models';
 
 import { NodesEntity } from '@modules/nodes';
 import { FindNodesByCriteriaQuery } from '@modules/nodes/queries/find-nodes-by-criteria';
@@ -13,41 +17,58 @@ import { GetNodeByUuidQuery } from '@modules/nodes/queries/get-node-by-uuid';
 
 import { QUEUES_NAMES } from '../../queue.enum';
 import { NODES_JOB_NAMES } from '../constants';
+import { IGetIpsListResult } from '../interfaces';
 
 @Processor(
     {
         name: QUEUES_NAMES.NODES.QUERY_NODES,
-        scope: Scope.REQUEST,
     },
     {
         concurrency: 10,
     },
 )
-export class QueryNodesQueueProcessor extends WorkerHost {
+export class QueryNodesQueueProcessor extends WorkerHost implements OnApplicationBootstrap {
+    private static readonly CONNECTIONS_EXPORT_MAX_AGE_MS = 3_600_000; // 1 hour
+
     private readonly logger = new Logger(QueryNodesQueueProcessor.name);
     private readonly CONCURRENCY: number;
+    private readonly exportToStreamEnabled: boolean;
 
     constructor(
         private readonly axios: AxiosService,
         private readonly queryBus: QueryBus,
+        private readonly rawCacheService: RawCacheService,
+        private readonly configService: TypedConfigService,
     ) {
         super();
         this.CONCURRENCY = 20;
+
+        this.exportToStreamEnabled = this.configService.getOrThrow('EXPORT_TO_STREAM_ENABLED');
+    }
+
+    onApplicationBootstrap() {
+        if (this.exportToStreamEnabled) {
+            this.logger.log(
+                `[STREAM] key "${EXPORT_TO_STREAM_KEYS.PREFIX}${EXPORT_TO_STREAM_KEYS.NODE_CONNECTIONS}", retention ${QueryNodesQueueProcessor.CONNECTIONS_EXPORT_MAX_AGE_MS / 60_000} min.`,
+            );
+        }
     }
 
     async process(job: Job) {
         switch (job.name) {
-            case NODES_JOB_NAMES.FETCH_IPS_LIST:
-                return await this.handleFetchIpsList(job);
-            case NODES_JOB_NAMES.FETCH_USERS_IPS_LIST:
-                return await this.handleFetchUsersIpsList(job);
+            case NODES_JOB_NAMES.CONNECTIONS_BY_USER:
+                return await this.handleConnectionsByUser(job);
+            case NODES_JOB_NAMES.CONNECTIONS_BY_NODE:
+                return await this.handleConnectionsByNode(job);
+            case NODES_JOB_NAMES.EXPORT_NODE_CONNECTIONS:
+                return await this.handleExportNodeConnectionsJob(job);
             default:
                 this.logger.warn(`Job "${job.name}" is not handled.`);
                 break;
         }
     }
 
-    private async handleFetchIpsList(job: Job<{ userId: string; userUuid: string }>) {
+    private async handleConnectionsByUser(job: Job<{ userId: number }>) {
         try {
             const findNodesByCriteriaResult = await this.queryBus.execute(
                 new FindNodesByCriteriaQuery({
@@ -61,7 +82,6 @@ export class QueryNodesQueueProcessor extends WorkerHost {
                 return {
                     success: false,
                     userId: job.data.userId,
-                    userUuid: job.data.userUuid,
                     nodes: [],
                 };
             }
@@ -72,7 +92,6 @@ export class QueryNodesQueueProcessor extends WorkerHost {
                 return {
                     success: true,
                     userId: job.data.userId,
-                    userUuid: job.data.userUuid,
                     nodes: [],
                 };
             }
@@ -82,7 +101,7 @@ export class QueryNodesQueueProcessor extends WorkerHost {
             const mapper = async (node: NodesEntity) => {
                 try {
                     const ipsListResponse = await this.axios.getIpsList(
-                        { userId: job.data.userId },
+                        { userId: job.data.userId.toString() },
                         {
                             address: node.address,
                             port: node.port,
@@ -90,11 +109,11 @@ export class QueryNodesQueueProcessor extends WorkerHost {
                         },
                     );
 
-                    if (!ipsListResponse.isOk || !ipsListResponse.response.response.ips.length) {
+                    if (!ipsListResponse.isOk || !ipsListResponse.response.ips.length) {
                         return;
                     }
 
-                    const ips = ipsListResponse.response.response.ips;
+                    const ips = ipsListResponse.response.ips;
                     let formattedIps: { ip: string; lastSeen: Date }[] = [];
 
                     if (ips.length > 0 && typeof ips[0] === 'string') {
@@ -136,21 +155,19 @@ export class QueryNodesQueueProcessor extends WorkerHost {
             return {
                 success: true,
                 userId: job.data.userId,
-                userUuid: job.data.userUuid,
                 nodes: result,
-            };
+            } satisfies IGetIpsListResult['result'];
         } catch (error) {
             this.logger.error(`Failed to fetch IPs list: ${error}`);
             return {
                 success: false,
                 userId: job.data.userId,
-                userUuid: job.data.userUuid,
                 nodes: [],
             };
         }
     }
 
-    private async handleFetchUsersIpsList(job: Job<{ nodeUuid: string }>) {
+    private async handleConnectionsByNode(job: Job<{ nodeUuid: string }>) {
         try {
             const nodeResult = await this.queryBus.execute(
                 new GetNodeByUuidQuery(job.data.nodeUuid),
@@ -185,14 +202,13 @@ export class QueryNodesQueueProcessor extends WorkerHost {
                 };
             }
 
-            const collator = new Intl.Collator(undefined, { numeric: true });
-
             return {
                 success: true,
                 nodeUuid: job.data.nodeUuid,
-                users: result.response.response.users.sort((a, b) =>
-                    collator.compare(a.userId, b.userId),
-                ),
+                users: result.response.users
+                    .map((user) => ({ ...user, userId: Number(user.userId) }))
+                    .filter((user) => Number.isFinite(user.userId))
+                    .sort((a, b) => a.userId - b.userId),
             };
         } catch (error) {
             this.logger.error(`Failed to fetch users IPs list: ${error}`);
@@ -201,6 +217,45 @@ export class QueryNodesQueueProcessor extends WorkerHost {
                 nodeUuid: job.data.nodeUuid,
                 users: [],
             };
+        }
+    }
+
+    private async handleExportNodeConnectionsJob(job: Job<{ nodeUuid: string }>): Promise<void> {
+        try {
+            if (!this.exportToStreamEnabled) {
+                return;
+            }
+
+            const nodeResult = await this.queryBus.execute(
+                new GetNodeByUuidQuery(job.data.nodeUuid),
+            );
+
+            if (!nodeResult.isOk || !nodeResult.response.isConnected) {
+                return;
+            }
+
+            const result = await this.axios.getUsersIpsList({
+                address: nodeResult.response.address,
+                port: nodeResult.response.port,
+                proxyUrl: nodeResult.response.proxyUrl,
+            });
+
+            if (!result.isOk || !result.response.users.length) {
+                return;
+            }
+
+            await this.rawCacheService.xaddTrimmedByAge(
+                EXPORT_TO_STREAM_KEYS.NODE_CONNECTIONS,
+                QueryNodesQueueProcessor.CONNECTIONS_EXPORT_MAX_AGE_MS,
+                {
+                    v: NODE_CONNECTIONS_STREAM_MESSAGE_VERSION,
+                    nodeId: nodeResult.response.id.toString(),
+                    ts: new Date().toISOString(),
+                    users: JSON.stringify(result.response.users),
+                },
+            );
+        } catch (error) {
+            this.logger.error(`Failed to export node connections to stream: ${error}`);
         }
     }
 }

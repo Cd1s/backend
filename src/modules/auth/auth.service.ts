@@ -42,7 +42,7 @@ import { GetPasskeysByAdminUuidQuery } from '@modules/admin/queries/get-passkeys
 import { RemnawaveSettingsEntity } from '@modules/remnawave-settings/entities';
 import { GetCachedRemnawaveSettingsQuery } from '@modules/remnawave-settings/queries/get-cached-remnawave-settings';
 
-import { VerifyPasskeyAuthenticationRequestDto } from './dtos';
+import { VerifyPasskeyAuthenticationBodyDto } from './dtos';
 import { ILogin, IRegister } from './interfaces';
 import {
     OAuth2AuthorizeResponseModel,
@@ -942,7 +942,7 @@ export class AuthService {
     }
 
     public async verifyPasskeyAuthentication(
-        dto: VerifyPasskeyAuthenticationRequestDto,
+        dto: VerifyPasskeyAuthenticationBodyDto,
         remnawaveSettings: RemnawaveSettingsEntity,
         ip: string,
         userAgent: string,
@@ -1021,7 +1021,10 @@ export class AuthService {
             const verification = await verifyAuthenticationResponse({
                 response,
                 expectedChallenge,
-                expectedOrigin: remnawaveSettings.passkeySettings.origin,
+                expectedOrigin: [
+                    remnawaveSettings.passkeySettings.origin,
+                    `https://${remnawaveSettings.passkeySettings.rpId}`,
+                ],
                 expectedRPID: remnawaveSettings.passkeySettings.rpId,
                 credential: {
                     id: passkey.response.id,
@@ -1091,11 +1094,14 @@ export class AuthService {
         isPocketId: boolean = false,
     ): Promise<arctic.OAuth2Client> {
         if (isPocketId) {
-            const { clientId, clientSecret } = settings.oauth2Settings.pocketid;
-            if (!clientId || !clientSecret) {
-                throw new Error('PocketID OAuth2 clientId or clientSecret not configured.');
+            const { clientId, clientSecret, frontendDomain } = settings.oauth2Settings.pocketid;
+            if (!clientId || !clientSecret || !frontendDomain) {
+                throw new Error(
+                    'PocketID OAuth2 config is incomplete (clientId, clientSecret, plainDomain, frontendDomain).',
+                );
             }
-            return new arctic.OAuth2Client(clientId, clientSecret, null);
+            const redirectUrl = `https://${frontendDomain}/${AUTH_ROUTES.OAUTH2.CALLBACK}/${OAUTH2_PROVIDERS.POCKETID}`;
+            return new arctic.OAuth2Client(clientId, clientSecret, redirectUrl);
         } else {
             const { clientId, clientSecret, frontendDomain } = settings.oauth2Settings.generic;
             if (!clientId || !clientSecret || !frontendDomain) {

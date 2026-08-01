@@ -13,6 +13,7 @@ interface OutboundConfig {
     network?: string;
     outbounds?: string[];
     password?: string;
+    remnawave?: { includeProxies?: boolean };
     server: string;
     server_port: number;
     tag: string;
@@ -64,10 +65,12 @@ export class SingBoxGeneratorService {
         overrideTemplateName?: string,
     ): Promise<string> {
         try {
-            const config = await this.subscriptionTemplateService.getCachedTemplateByType(
+            const template = (await this.subscriptionTemplateService.getCachedTemplateByType(
                 'SINGBOX',
                 overrideTemplateName,
-            );
+            )) as Record<string, unknown>;
+
+            const userOutbounds: OutboundConfig[] = [];
 
             for (const host of hosts) {
                 if (host.metadata.excludeFromSubscriptionTypes.includes('SINGBOX')) continue;
@@ -76,10 +79,10 @@ export class SingBoxGeneratorService {
                 const outbound = this.buildOutbound(host);
                 if (!outbound) continue;
 
-                (config as Record<string, unknown[]>).outbounds.push(outbound);
+                userOutbounds.push(outbound);
             }
 
-            return this.renderConfig(config as Record<string, unknown>);
+            return this.renderConfig(template, userOutbounds);
         } catch {
             return '';
         }
@@ -294,24 +297,35 @@ export class SingBoxGeneratorService {
         return config;
     }
 
-    private renderConfig(config: Record<string, unknown>): string {
-        const outbounds = config.outbounds as OutboundConfig[];
+    private renderConfig(
+        template: Record<string, unknown>,
+        userOutbounds: OutboundConfig[],
+    ): string {
+        const allOutbounds = [...(template.outbounds as OutboundConfig[]), ...userOutbounds];
 
-        const urltestTags = outbounds
+        const urltestTags = allOutbounds
             .filter((o) => PROXY_PROTOCOL_TYPES.has(o.type))
             .map((o) => o.tag);
 
-        const selectorTags = outbounds.filter((o) => SELECTOR_TYPES.has(o.type)).map((o) => o.tag);
+        const selectorTags = allOutbounds
+            .filter((o) => SELECTOR_TYPES.has(o.type))
+            .map((o) => o.tag);
 
-        for (const outbound of outbounds) {
-            if (outbound.type === 'urltest') {
-                outbound.outbounds = urltestTags;
-            }
-            if (outbound.type === 'selector') {
-                outbound.outbounds = selectorTags;
-            }
-        }
+        const finalOutbounds = allOutbounds.map((outbound) => {
+            const { remnawave, ...cleanOutbound } = outbound;
 
-        return JSON.stringify(config, null, 4);
+            if (remnawave?.includeProxies === false) {
+                return cleanOutbound;
+            }
+            if (cleanOutbound.type === 'urltest') {
+                return { ...cleanOutbound, outbounds: urltestTags };
+            }
+            if (cleanOutbound.type === 'selector') {
+                return { ...cleanOutbound, outbounds: selectorTags };
+            }
+            return cleanOutbound;
+        });
+
+        return JSON.stringify({ ...template, outbounds: finalOutbounds }, null, 0);
     }
 }

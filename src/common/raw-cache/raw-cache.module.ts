@@ -5,6 +5,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 
 import { getRedisConnectionOptions } from '@common/utils/get-redis-connection-options';
 
+import { MemoryCacheService } from './memory-cache.service';
 import { RawCacheService } from './raw-cache.service';
 
 @Global()
@@ -30,7 +31,7 @@ import { RawCacheService } from './raw-cache.service';
             inject: [ConfigService],
         }),
     ],
-    providers: [RawCacheService],
+    providers: [RawCacheService, MemoryCacheService],
     exports: [RawCacheService],
 })
 export class RawCacheModule {}

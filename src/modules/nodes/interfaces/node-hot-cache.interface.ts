@@ -1,4 +1,4 @@
-import { TConfigProfileCoreType } from '@libs/contracts/constants';
+import type { TConfigProfileCoreType } from '@libs/contracts/constants';
 
 import { INodeSystem } from './node-host-info.interface';
 

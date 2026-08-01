@@ -3,7 +3,7 @@ import { Query } from '@nestjs/cqrs';
 import { StartXrayCommand } from '@remnawave/node-contract';
 
 import { TResult } from '@common/types';
-import { TConfigProfileCoreType } from '@libs/contracts/constants';
+import type { TConfigProfileCoreType } from '@libs/contracts/constants';
 
 import { ConfigProfileInboundEntity } from '@modules/config-profiles/entities';
 

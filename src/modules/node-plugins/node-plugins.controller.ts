@@ -2,7 +2,7 @@ import { CONTROLLERS_INFO, NODE_PLUGINS_CONTROLLER } from '@contract/api';
 import { ROLE } from '@contract/constants';
 
 import { Body, Controller, HttpStatus, Param, UseFilters, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOkResponse, ApiParam, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
 import { Endpoint } from '@common/decorators/base-endpoint';
 import { Roles } from '@common/decorators/roles/roles';
@@ -24,21 +24,19 @@ import {
 } from '@libs/contracts/commands';
 
 import {
-    ReorderNodePluginsRequestDto,
+    ReorderNodePluginsBodyDto,
     ReorderNodePluginsResponseDto,
     GetNodePluginsResponseDto,
     GetNodePluginResponseDto,
-    UpdateNodePluginRequestDto,
+    UpdateNodePluginBodyDto,
     UpdateNodePluginResponseDto,
-    DeleteNodePluginRequestDto,
-    DeleteNodePluginResponseDto,
-    CreateNodePluginRequestDto,
+    DeleteNodePluginParamDto,
+    CreateNodePluginBodyDto,
     CreateNodePluginResponseDto,
-    GetNodePluginRequestDto,
     CloneNodePluginResponseDto,
-    CloneNodePluginRequestDto,
-    PluginExecutorResponseDto,
-    PluginExecutorRequestDto,
+    CloneNodePluginBodyDto,
+    PluginExecutorBodyDto,
+    GetNodePluginParamDto,
 } from './dtos/node-plugins.dtos';
 import { NodePluginService } from './node-plugins.service';
 
@@ -52,11 +50,8 @@ import { NodePluginService } from './node-plugins.service';
 export class NodePluginController {
     constructor(private readonly nodePluginService: NodePluginService) {}
 
-    @ApiOkResponse({
-        type: GetNodePluginsResponseDto,
-        description: 'Node plugins retrieved successfully',
-    })
     @Endpoint({
+        type: GetNodePluginsResponseDto,
         command: GetNodePluginsCommand,
         httpCode: HttpStatus.OK,
     })
@@ -69,19 +64,15 @@ export class NodePluginController {
         };
     }
 
-    @ApiOkResponse({
-        type: GetNodePluginResponseDto,
-        description: 'Node plugin retrieved successfully',
-    })
-    @ApiParam({ name: 'uuid', type: String, description: 'Node plugin UUID' })
     @Endpoint({
+        type: GetNodePluginResponseDto,
         command: GetNodePluginCommand,
         httpCode: HttpStatus.OK,
     })
     async getConfigByUuid(
-        @Param() paramData: GetNodePluginRequestDto,
+        @Param() param: GetNodePluginParamDto,
     ): Promise<GetNodePluginResponseDto> {
-        const { uuid } = paramData;
+        const { uuid } = param;
         const result = await this.nodePluginService.getConfigByUuid(uuid);
         const data = errorHandler(result);
         return {
@@ -92,17 +83,13 @@ export class NodePluginController {
         };
     }
 
-    @ApiOkResponse({
-        type: UpdateNodePluginResponseDto,
-        description: 'Node plugin updated successfully',
-    })
     @Endpoint({
+        type: UpdateNodePluginResponseDto,
         command: UpdateNodePluginCommand,
         httpCode: HttpStatus.OK,
-        apiBody: UpdateNodePluginRequestDto,
     })
     async updateConfig(
-        @Body() body: UpdateNodePluginRequestDto,
+        @Body() body: UpdateNodePluginBodyDto,
     ): Promise<UpdateNodePluginResponseDto> {
         const result = await this.nodePluginService.updateConfig(
             body.uuid,
@@ -119,37 +106,24 @@ export class NodePluginController {
         };
     }
 
-    @ApiOkResponse({
-        type: DeleteNodePluginResponseDto,
-        description: 'Node plugin deleted successfully',
-    })
-    @ApiParam({ name: 'uuid', type: String, description: 'Node plugin UUID' })
     @Endpoint({
         command: DeleteNodePluginCommand,
-        httpCode: HttpStatus.OK,
+        httpCode: HttpStatus.NO_CONTENT,
     })
-    async deleteConfig(
-        @Param() paramData: DeleteNodePluginRequestDto,
-    ): Promise<DeleteNodePluginResponseDto> {
-        const result = await this.nodePluginService.deleteConfig(paramData.uuid);
+    async deleteConfig(@Param() param: DeleteNodePluginParamDto) {
+        const result = await this.nodePluginService.deleteConfig(param.uuid);
 
-        const data = errorHandler(result);
-        return {
-            response: data,
-        };
+        errorHandler(result);
+        return;
     }
 
-    @ApiOkResponse({
-        type: CreateNodePluginResponseDto,
-        description: 'Node plugin created successfully',
-    })
     @Endpoint({
+        type: CreateNodePluginResponseDto,
         command: CreateNodePluginCommand,
         httpCode: HttpStatus.CREATED,
-        apiBody: CreateNodePluginRequestDto,
     })
     async createConfig(
-        @Body() body: CreateNodePluginRequestDto,
+        @Body() body: CreateNodePluginBodyDto,
     ): Promise<CreateNodePluginResponseDto> {
         const result = await this.nodePluginService.createConfig(body.name);
 
@@ -159,17 +133,13 @@ export class NodePluginController {
         };
     }
 
-    @ApiOkResponse({
-        type: ReorderNodePluginsResponseDto,
-        description: 'Node plugins reordered successfully',
-    })
     @Endpoint({
+        type: ReorderNodePluginsResponseDto,
         command: ReorderNodePluginCommand,
         httpCode: HttpStatus.OK,
-        apiBody: ReorderNodePluginsRequestDto,
     })
     async reorderNodePlugins(
-        @Body() body: ReorderNodePluginsRequestDto,
+        @Body() body: ReorderNodePluginsBodyDto,
     ): Promise<ReorderNodePluginsResponseDto> {
         const result = await this.nodePluginService.reorderNodePlugins(body.items);
 
@@ -179,17 +149,13 @@ export class NodePluginController {
         };
     }
 
-    @ApiOkResponse({
-        type: CloneNodePluginResponseDto,
-        description: 'Node plugin cloned successfully',
-    })
     @Endpoint({
+        type: CloneNodePluginResponseDto,
         command: CloneNodePluginCommand,
         httpCode: HttpStatus.OK,
-        apiBody: CloneNodePluginRequestDto,
     })
     async cloneNodePlugin(
-        @Body() body: CloneNodePluginRequestDto,
+        @Body() body: CloneNodePluginBodyDto,
     ): Promise<CloneNodePluginResponseDto> {
         const result = await this.nodePluginService.cloneNodePlugin(body.cloneFromUuid);
 
@@ -199,23 +165,14 @@ export class NodePluginController {
         };
     }
 
-    @ApiOkResponse({
-        type: PluginExecutorResponseDto,
-        description: 'Node plugin cloned successfully',
-    })
     @Endpoint({
         command: PluginExecutorCommand,
-        httpCode: HttpStatus.OK,
-        apiBody: PluginExecutorRequestDto,
+        httpCode: HttpStatus.ACCEPTED,
     })
-    async pluginExecutor(
-        @Body() body: PluginExecutorRequestDto,
-    ): Promise<PluginExecutorResponseDto> {
+    async pluginExecutor(@Body() body: PluginExecutorBodyDto) {
         const result = await this.nodePluginService.executePluginCommand(body);
 
-        const data = errorHandler(result);
-        return {
-            response: data,
-        };
+        errorHandler(result);
+        return;
     }
 }

@@ -22,6 +22,7 @@ import {
     syncInbounds,
     verifyAdminUser,
     seedRemnawaveSettings,
+    migrateScopes,
 } from './seeders';
 
 dayjs.extend(utc);
@@ -51,6 +52,7 @@ const SEED_STEPS = [
     { name: 'Response Rules', fn: seedResponseRules },
     { name: 'Subscription Page Config', fn: seedSubscriptionPageConfig },
     { name: 'Verify Admin User', fn: verifyAdminUser },
+    { name: 'Migrate API Token Scopes', fn: migrateScopes },
 ] as const;
 
 async function checkDatabaseConnection() {

@@ -141,6 +141,7 @@ function buildTlsSettings(host: ResolvedProxyConfig): Record<string, unknown> {
     if (host.security !== 'tls') return {};
     const settings: Record<string, unknown> = {
         serverName: host.securityOptions.serverName || '',
+        enableSessionResumption: host.securityOptions.enableSessionResumption,
     };
 
     if (host.securityOptions.fingerprint !== '') {
@@ -165,6 +166,10 @@ function buildTlsSettings(host: ResolvedProxyConfig): Record<string, unknown> {
 
     if (host.securityOptions.echConfigList) {
         settings.echConfigList = host.securityOptions.echConfigList;
+    }
+
+    if (host.securityOptions.echSockopt) {
+        settings.echSockopt = host.securityOptions.echSockopt;
     }
 
     return settings;

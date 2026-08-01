@@ -16,7 +16,7 @@ export const ShadowsocksProtocolOptionsSchema = z.object({
     method: z.string(),
     password: z.string(),
     uot: z.boolean(),
-    uotVersion: z.number().int(),
+    uotVersion: z.int(),
 });
 
 const TcpHeaderNoneSchema = z.object({
@@ -27,14 +27,14 @@ const TcpHeaderHttpRequestSchema = z.object({
     version: z.string().optional(),
     method: z.string().optional(),
     path: z.array(z.string()).optional(),
-    headers: z.record(z.unknown()).optional(),
+    headers: z.record(z.string(), z.unknown()).optional(),
 });
 
 const TcpHeaderHttpResponseSchema = z.object({
     version: z.string().optional(),
     status: z.string().optional(),
     reason: z.string().optional(),
-    headers: z.record(z.unknown()).optional(),
+    headers: z.record(z.string(), z.unknown()).optional(),
 });
 
 const TcpHeaderHttpSchema = z.object({
@@ -53,20 +53,20 @@ export const XhttpTransportOptionsSchema = z.object({
     path: z.string().nullable(),
     host: z.string().nullable(),
     mode: z.enum(['auto', 'packet-up', 'stream-up', 'stream-one']),
-    extra: z.record(z.unknown()).nullable(),
+    extra: z.record(z.string(), z.unknown()).nullable(),
 });
 
 export const WsTransportOptionsSchema = z.object({
     path: z.string().nullable(),
     host: z.string().nullable(),
-    headers: z.record(z.string()).nullable(),
+    headers: z.record(z.string(), z.string()).nullable(),
     heartbeatPeriod: z.number().nullable(),
 });
 
 export const HttpUpgradeTransportOptionsSchema = z.object({
     path: z.string().nullable(),
     host: z.string().nullable(),
-    headers: z.record(z.string()).nullable(),
+    headers: z.record(z.string(), z.string()).nullable(),
 });
 
 export const GrpcTransportOptionsSchema = z.object({
@@ -76,13 +76,13 @@ export const GrpcTransportOptionsSchema = z.object({
 });
 
 export const KcpTransportOptionsSchema = z.object({
-    clientMtu: z.number().int(),
-    clientTti: z.number().int(),
+    clientMtu: z.int(),
+    clientTti: z.int(),
     congestion: z.boolean(),
 });
 
 export const HysteriaProtocolOptionsSchema = z.object({
-    version: z.number().int(),
+    version: z.int(),
 });
 
 export const AnyTlsProtocolOptionsSchema = z.object({
@@ -90,7 +90,7 @@ export const AnyTlsProtocolOptionsSchema = z.object({
 });
 
 export const HysteriaTransportOptionsSchema = z.object({
-    version: z.number().int(),
+    version: z.int(),
     auth: z.string(),
 });
 
@@ -103,6 +103,7 @@ export const TlsSecurityOptionsSchema = z.object({
     serverName: z.string().nullable(),
     echConfigList: z.string().nullable(),
     echForceQuery: z.string().nullable(),
+    echSockopt: z.nullable(z.unknown()),
 });
 
 export const RealitySecurityOptionsSchema = z.object({
@@ -213,24 +214,24 @@ export const SecurityVariantSchema = z.discriminatedUnion('security', [
 ]);
 
 export const ProxyEntryMetadataSchema = z.object({
-    uuid: z.string().uuid(),
+    uuid: z.uuid(),
     tags: z.array(z.string()),
-    excludeFromSubscriptionTypes: z.array(z.nativeEnum(SUBSCRIPTION_TEMPLATE_TYPE)),
+    excludeFromSubscriptionTypes: z.array(z.enum(SUBSCRIPTION_TEMPLATE_TYPE)),
     inboundTag: z.string(),
-    configProfileUuid: z.string().uuid().nullable(),
-    configProfileInboundUuid: z.string().uuid().nullable(),
+    configProfileUuid: z.uuid().nullable(),
+    configProfileInboundUuid: z.uuid().nullable(),
     isDisabled: z.boolean(),
     isHidden: z.boolean(),
-    viewPosition: z.number().int(),
+    viewPosition: z.int(),
     remark: z.string(),
-    vlessRouteId: z.number().int().nullable(),
+    vlessRouteId: z.int().nullable(),
     rawInbound: z.nullable(z.unknown()),
 });
 
 export const ResolvedProxyConfigSchema = z.object({
     finalRemark: z.string(),
     address: z.string(),
-    port: z.number().int().positive(),
+    port: z.int().positive(),
 
     protocol: z.enum(['vless', 'trojan', 'shadowsocks', 'hysteria', 'anytls']),
     protocolOptions: z.union([
@@ -265,7 +266,7 @@ export const ResolvedProxyConfigSchema = z.object({
     clientOverrides: z.object({
         shuffleHost: z.boolean(),
         mihomoX25519: z.boolean(),
-        mihomoIpVersion: z.nativeEnum(MIHOMO_IP_VERSION).nullable(),
+        mihomoIpVersion: z.enum(MIHOMO_IP_VERSION).nullable(),
         serverDescription: z.string().nullable(),
         xrayJsonTemplate: z.nullable(z.unknown()),
     }),

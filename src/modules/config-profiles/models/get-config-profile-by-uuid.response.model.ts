@@ -1,4 +1,4 @@
-import { TConfigProfileCoreType } from '@libs/contracts/constants';
+import type { TConfigProfileCoreType } from '@libs/contracts/constants';
 
 import { ConfigProfileWithInboundsAndNodesEntity } from '../entities';
 import { ConfigProfileInboundEntity } from '../entities/config-profile-inbound.entity';

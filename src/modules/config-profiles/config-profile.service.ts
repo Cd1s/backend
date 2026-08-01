@@ -11,17 +11,17 @@ import { fail, ok, TResult } from '@common/types';
 import {
     CACHE_KEYS,
     CONFIG_PROFILE_CORE_TYPE,
-    TConfigProfileCoreType,
 } from '@libs/contracts/constants';
+import type { TConfigProfileCoreType } from '@libs/contracts/constants';
 import { ERRORS } from '@libs/contracts/constants/errors';
 
 import { NodesQueuesService } from '@queue/_nodes';
 
-import { ReorderConfigProfilesRequestDto } from './dtos';
+import { ReorderConfigProfilesBodyDto } from './dtos';
 import { ConfigProfileWithInboundsAndNodesEntity } from './entities';
 import { ConfigProfileInboundEntity } from './entities/config-profile-inbound.entity';
 import { ConfigProfileEntity } from './entities/config-profile.entity';
-import { DeleteConfigProfileByUuidResponseModel, GetAllInboundsResponseModel } from './models';
+import { GetAllInboundsResponseModel } from './models';
 import { GetConfigProfileByUuidResponseModel } from './models/get-config-profile-by-uuid.response.model';
 import { GetConfigProfilesResponseModel } from './models/get-config-profiles.response.model';
 import { GetSnippetsQuery } from './queries/get-snippets';
@@ -116,9 +116,7 @@ export class ConfigProfileService {
         }
     }
 
-    public async deleteConfigProfileByUUID(
-        uuid: string,
-    ): Promise<TResult<DeleteConfigProfileByUuidResponseModel>> {
+    public async deleteConfigProfileByUUID(uuid: string): Promise<TResult<boolean>> {
         try {
             const configProfile = await this.configProfileRepository.getConfigProfileByUUID(uuid);
 
@@ -137,9 +135,9 @@ export class ConfigProfileService {
                 configProfile.inbounds.map((inbound) => CACHE_KEYS.RAW_INBOUND(inbound.uuid)),
             );
 
-            const result = await this.configProfileRepository.deleteByUUID(uuid);
+            await this.configProfileRepository.deleteByUUID(uuid);
 
-            return ok(new DeleteConfigProfileByUuidResponseModel(result));
+            return ok(true);
         } catch (error) {
             this.logger.error(error);
             return fail(ERRORS.DELETE_CONFIG_PROFILE_BY_UUID_ERROR);
@@ -358,7 +356,7 @@ export class ConfigProfileService {
     }
 
     public async reorderConfigProfiles(
-        dto: ReorderConfigProfilesRequestDto,
+        dto: ReorderConfigProfilesBodyDto,
     ): Promise<TResult<GetConfigProfilesResponseModel>> {
         try {
             await this.configProfileRepository.reorderMany(dto.items);
