@@ -31,7 +31,29 @@ jobs:
 
       - name: Publish package on NPM
         working-directory: 'libs/contract'
-        run: npm publish
+        run: |
+          set -euo pipefail
+
+          package_name="$(node -p "require('./package.json').name")"
+          package_version="$(node -p "require('./package.json').version")"
+          package_spec="${package_name}@${package_version}"
+          query_output="$(mktemp)"
+          query_error="$(mktemp)"
+          trap 'rm -f "$query_output" "$query_error"' EXIT
+
+          if npm view "$package_spec" version --json >"$query_output" 2>"$query_error"; then
+            echo "package_publish=skipped"
+            echo "Package $package_spec already exists in the npm registry."
+            exit 0
+          fi
+
+          if ! grep -Eq 'E404|(^|[^0-9])404([^0-9]|$)|Not Found' "$query_error"; then
+            cat "$query_error" >&2
+            exit 1
+          fi
+
+          npm publish
+          echo "package_publish=published"
 
       # - name: Install HashedSet dependencies and build
       #   working-directory: 'libs/hashed-set'
