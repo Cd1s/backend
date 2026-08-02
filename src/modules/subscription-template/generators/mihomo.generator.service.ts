@@ -71,6 +71,7 @@ interface ProxyNode {
     port: number;
     server: string;
     servername?: string;
+    'name-cert-verify'?: string;
     'skip-cert-verify'?: boolean;
     'packet-encoding'?: string;
     'ip-version'?: string;
@@ -176,6 +177,13 @@ export class MihomoGeneratorService {
             return this.buildHysteria2Node(host, isExtendedClient);
         }
 
+        if (host.protocol === 'anytls' && host.security === 'reality') {
+            this.logger.warn(
+                `Skipping AnyTLS host "${host.finalRemark}" for Mihomo: AnyTLS+Reality is unsupported`,
+            );
+            return null;
+        }
+
         const node: ProxyNode = {
             name: host.finalRemark,
             type: this.resolveClashType(host.protocol),
@@ -239,6 +247,10 @@ export class MihomoGeneratorService {
                 node['udp-over-tcp-version'] = host.protocolOptions.uotVersion;
                 return true;
 
+            case 'anytls':
+                node.password = host.protocolOptions.password;
+                return true;
+
             default:
                 return false;
         }
@@ -250,10 +262,14 @@ export class MihomoGeneratorService {
                 const opts = host.securityOptions;
                 node.tls = true;
 
-                if (node.type === 'trojan') {
+                if (node.type === 'trojan' || node.type === 'anytls') {
                     node.sni = opts.serverName ?? '';
                 } else {
                     node.servername = opts.serverName ?? '';
+                }
+
+                if (node.type === 'anytls' && opts.verifyPeerCertByName) {
+                    node['name-cert-verify'] = opts.verifyPeerCertByName;
                 }
 
                 if (opts.alpn) {

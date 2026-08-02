@@ -17,3 +17,10 @@ Therefore:
   VLESS or Trojan.
 
 This is a client compatibility requirement, not a Zap-Hosting panel configuration defect.
+
+Mihomo/Clash Meta/Clash Mi output uses the native `type: anytls` proxy schema and therefore
+requires a client version that implements that schema. The backend validator checks the
+rendered YAML with the pinned official Mihomo `v1.19.29` binary. Mihomo does not support an
+AnyTLS+Reality combination, so that combination is explicitly omitted from Mihomo output;
+Reality fields are never fabricated for AnyTLS. Older import layers that reject `type: anytls`
+must be upgraded instead of receiving a VLESS or Trojan downgrade.

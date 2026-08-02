@@ -89,6 +89,24 @@ jobs:
 
       - run: npm ci --no-audit --no-fund
         if: steps.sync.outcome == 'success'
+      - name: Install official Mihomo validator
+        if: steps.sync.outcome == 'success'
+        env:
+          MIHOMO_VERSION: v1.19.29
+          MIHOMO_SHA256: a048ecbe2dc598321f63a6fbeffa93f0c10ca6db818f64b2b83cf19ef194d73f
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/mihomo.gz"
+          binary="$RUNNER_TEMP/mihomo"
+          url="https://github.com/MetaCubeX/mihomo/releases/download/${MIHOMO_VERSION}/mihomo-linux-amd64-v1-${MIHOMO_VERSION}.gz"
+          curl -fsSL "$url" -o "$archive"
+          echo "$MIHOMO_SHA256  $archive" | sha256sum --check
+          gzip -dc "$archive" > "$binary"
+          chmod +x "$binary"
+          echo "MIHOMO_BIN=$binary" >> "$GITHUB_ENV"
+          "$binary" -v
+      - run: npm run validate:mihomo-anytls
+        if: steps.sync.outcome == 'success'
       - run: npm run build
         if: steps.sync.outcome == 'success'
       - run: npm run build:seed
