@@ -8,7 +8,9 @@ on:
 permissions:
   contents: write
   packages: write
-  workflows: write
+
+# `workflows` is a GitHub App/PAT repository permission, not a valid Actions
+# `permissions` key. WORKFLOW_TOKEN must grant contents:write + workflows:write.
 
 concurrency:
   group: upstream-sync-backend
@@ -25,6 +27,16 @@ jobs:
         with:
           ref: singbox
           fetch-depth: 0
+          token: ${{ secrets.WORKFLOW_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Verify workflow-capable push token
+        env:
+          WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+        run: |
+          if [ -z "$WORKFLOW_TOKEN" ]; then
+            echo "upstream_sync=failed reason=missing_WORKFLOW_TOKEN requires contents:write_and_workflows:write" >&2
+            exit 1
+          fi
 
       - name: Resolve official latest release
         id: release

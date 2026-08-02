@@ -168,7 +168,11 @@ test_release_structure_mismatch_fails() {
 
 test_workflow_can_push_workflow_files() {
     assert_file_contains "$WORKFLOW" 'contents: write' || return 1
-    assert_file_contains "$WORKFLOW" 'workflows: write'
+    assert_file_contains "$WORKFLOW" 'WORKFLOW_TOKEN' || return 1
+    assert_file_contains "$WORKFLOW" 'contents:write + workflows:write' || return 1
+    if grep -Eq '^[[:space:]]+workflows:[[:space:]]+write[[:space:]]*$' "$WORKFLOW"; then
+        return 1
+    fi
 }
 
 test_anytls_client_compatibility_contract() {
