@@ -128,6 +128,8 @@ jobs:
         if: steps.sync.outcome == 'success'
       - run: npm run validate:mihomo-anytls
         if: steps.sync.outcome == 'success'
+      - run: npm run validate:clash-anytls
+        if: steps.sync.outcome == 'success'
       - run: npm run build
         if: steps.sync.outcome == 'success'
       - run: npm run build:seed

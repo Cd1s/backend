@@ -68,6 +68,7 @@ jobs:
 
       - run: npm run validate:singbox-1.13
       - run: npm run validate:mihomo-anytls
+      - run: npm run validate:clash-anytls
       - run: npm run build
       - run: npm run build:seed
       - run: npm run validate:seed-core-inbounds

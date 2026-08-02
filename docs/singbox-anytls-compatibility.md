@@ -32,8 +32,8 @@ same subscription JSON can pass the official command-line validator on Linux/mac
 not change the native AnyTLS outbound or the sing-box/Xray core selection behavior.
 
 Mihomo/Clash Meta/Clash Mi output uses the native `type: anytls` proxy schema and therefore
-requires a client version that implements that schema. The backend validator checks the
-rendered YAML with the pinned official Mihomo `v1.19.29` binary. Mihomo does not support an
-AnyTLS+Reality combination, so that combination is explicitly omitted from Mihomo output;
-Reality fields are never fabricated for AnyTLS. Older import layers that reject `type: anytls`
-must be upgraded instead of receiving a VLESS or Trojan downgrade.
+requires a client version that implements that schema. Both the MIHOMO generator and the CLASH
+generator (used by the ClashMi user agent) are checked with the pinned official Mihomo `v1.19.29`
+binary. Mihomo does not support an AnyTLS+Reality combination, so that combination is explicitly
+omitted from both outputs; Reality fields are never fabricated for AnyTLS. Older import layers
+that reject `type: anytls` must be upgraded instead of receiving a VLESS or Trojan downgrade.
