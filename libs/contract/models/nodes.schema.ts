@@ -7,6 +7,7 @@ import { NodeSystemSchema } from './node-system.schema';
 
 export const NodesSchema = z.object({
     uuid: z.uuid(),
+    id: z.number(),
     name: z.string(),
     address: z.string(),
     port: z.nullable(z.int()),

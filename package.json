@@ -1,6 +1,6 @@
 {
   "name": "@remnawave/backend",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "private": false,
   "description": "Remnawave Panel Backend",
   "homepage": "https://github.com/remnawave",
@@ -84,7 +84,7 @@
     "enhanced-ms": "^4.3.0",
     "helmet": "^8.3.0",
     "ioredis": "5.11.1",
-    "js-yaml": "^5.2.2",
+    "js-yaml": "^5.2.3",
     "jsonwebtoken": "^9.0.3",
     "kysely": "^0.28.11",
     "lru-cache": "^11.5.2",
