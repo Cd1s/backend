@@ -4,6 +4,7 @@ set -u
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SCRIPT="$ROOT/.github/scripts/sync-release.sh"
 WORKFLOW="$ROOT/.github/workflows/upstream-sync.yml"
+COMPATIBILITY_DOC="$ROOT/docs/singbox-anytls-compatibility.md"
 failures=0
 
 fail() {
@@ -165,6 +166,20 @@ test_release_structure_mismatch_fails() {
     assert_contains "$output" 'release_tag_mismatch'
 }
 
+test_workflow_can_push_workflow_files() {
+    assert_file_contains "$WORKFLOW" 'contents: write' || return 1
+    assert_file_contains "$WORKFLOW" 'workflows: write'
+}
+
+test_anytls_client_compatibility_contract() {
+    assert_file_contains "$COMPATIBILITY_DOC" '1.11.4' || return 1
+    assert_file_contains "$COMPATIBILITY_DOC" '1.12.0' || return 1
+    assert_file_contains "$COMPATIBILITY_DOC" 'sing-box JSON' || return 1
+    assert_file_contains "$COMPATIBILITY_DOC" 'AnyTLS URI' || return 1
+    assert_file_contains "$COMPATIBILITY_DOC" 'Xray JSON' || return 1
+    assert_file_contains "$COMPATIBILITY_DOC" 'must not be downgraded' || return 1
+}
+
 test_workflow_contract() {
     assert_file_contains "$WORKFLOW" 'schedule:' || return 1
     assert_file_contains "$WORKFLOW" 'workflow_dispatch:' || return 1
@@ -205,6 +220,8 @@ run_case test_different_tag_without_release_fails
 run_case test_release_without_tag_fails
 run_case test_query_error_fails
 run_case test_release_structure_mismatch_fails
+run_case test_workflow_can_push_workflow_files
+run_case test_anytls_client_compatibility_contract
 run_case test_workflow_contract
 
 if [ "$failures" -ne 0 ]; then
