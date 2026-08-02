@@ -35,6 +35,7 @@
     "fix": "oxfmt && oxlint --fix",
     "sync:upstream": "node scripts/sync-upstream.cjs",
     "validate:mihomo-anytls": "node scripts/validate-mihomo-anytls.cjs",
+    "validate:singbox-1.13": "node scripts/validate-singbox-1.13-compatibility.cjs",
     "validate:shadowrocket-anytls": "node scripts/validate-shadowrocket-anytls.cjs",
     "validate:seed-core-inbounds": "node scripts/validate-seed-core-inbounds.cjs",
     "validate:upstream-adaptation": "node scripts/validate-upstream-adaptation.cjs"

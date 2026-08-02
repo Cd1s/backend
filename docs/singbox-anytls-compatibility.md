@@ -18,6 +18,19 @@ Therefore:
 
 This is a client compatibility requirement, not a Zap-Hosting panel configuration defect.
 
+The default sing-box subscription template is validated with the official sing-box `1.13.15`
+binary. It uses the `route` `action: sniff` rule instead of removed inbound `sniff` fields,
+typed DNS/TCP/TLS/FakeIP servers instead of legacy `address` servers, merged TUN `address`
+fields, and `route.default_domain_resolver`. The default output therefore does not require
+`ENABLE_DEPRECATED_*` compatibility environment variables. Custom SINGBOX templates are not
+rewritten automatically; they must be migrated and validated by their owner before use. On
+startup, the reserved `Default` template is refreshed only when legacy DNS/inbound markers are
+detected; named custom templates are not overwritten.
+
+The default template also omits the Android-only `route.override_android_vpn` option so the
+same subscription JSON can pass the official command-line validator on Linux/macOS. This does
+not change the native AnyTLS outbound or the sing-box/Xray core selection behavior.
+
 Mihomo/Clash Meta/Clash Mi output uses the native `type: anytls` proxy schema and therefore
 requires a client version that implements that schema. The backend validator checks the
 rendered YAML with the pinned official Mihomo `v1.19.29` binary. Mihomo does not support an

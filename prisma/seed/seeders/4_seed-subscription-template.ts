@@ -14,6 +14,36 @@ import {
     DEFAULT_TEMPLATE_XRAY_JSON,
 } from '@modules/subscription-template/constants';
 
+function isLegacySingBoxTemplate(templateJson: unknown): boolean {
+    if (!templateJson || typeof templateJson !== 'object') return false;
+
+    const template = templateJson as {
+        dns?: { fakeip?: unknown; independent_cache?: unknown; servers?: unknown };
+        inbounds?: unknown;
+    };
+    const dnsServers = Array.isArray(template.dns?.servers) ? template.dns.servers : [];
+    const inbounds = Array.isArray(template.inbounds) ? template.inbounds : [];
+    const hasLegacyDnsServer = dnsServers.some(
+        (server) =>
+            server &&
+            typeof server === 'object' &&
+            ('address' in server || 'address_strategy' in server),
+    );
+    const hasLegacyInbound = inbounds.some(
+        (inbound) =>
+            inbound &&
+            typeof inbound === 'object' &&
+            ('sniff' in inbound || 'inet4_address' in inbound || 'inet6_address' in inbound),
+    );
+
+    return (
+        hasLegacyDnsServer ||
+        hasLegacyInbound ||
+        template.dns?.fakeip !== undefined ||
+        template.dns?.independent_cache !== undefined
+    );
+}
+
 export async function seedSubscriptionTemplate(prisma: PrismaClient) {
     consola.start('Seeding subscription templates...');
 
@@ -61,6 +91,15 @@ export async function seedSubscriptionTemplate(prisma: PrismaClient) {
                 break;
             case SUBSCRIPTION_TEMPLATE_TYPE.SINGBOX:
                 if (existingConfig) {
+                    if (isLegacySingBoxTemplate(existingConfig.templateJson)) {
+                        await prisma.subscriptionTemplate.update({
+                            where: { uuid: existingConfig.uuid },
+                            data: { templateJson: DEFAULT_TEMPLATE_SINGBOX },
+                        });
+                        consola.success(`Updated legacy default ${templateType} config`);
+                        break;
+                    }
+
                     consola.info(`Default ${templateType} config already exists`);
                     continue;
                 }

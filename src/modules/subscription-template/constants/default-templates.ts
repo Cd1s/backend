@@ -182,18 +182,20 @@ export const DEFAULT_TEMPLATE_SINGBOX = {
         servers: [
             {
                 tag: 'cf-dns',
-                address: 'tls://1.1.1.1',
+                type: 'tls',
+                server: '1.1.1.1',
             },
             {
                 tag: 'local',
-                address: 'tcp://1.1.1.1',
-                address_strategy: 'prefer_ipv4',
-                strategy: 'ipv4_only',
+                type: 'tcp',
+                server: '1.1.1.1',
                 detour: 'direct',
             },
             {
                 tag: 'remote',
-                address: 'fakeip',
+                type: 'fakeip',
+                inet4_range: '198.18.0.0/15',
+                inet6_range: 'fc00::/18',
             },
         ],
         rules: [
@@ -201,17 +203,8 @@ export const DEFAULT_TEMPLATE_SINGBOX = {
                 query_type: ['A', 'AAAA'],
                 server: 'remote',
             },
-            {
-                outbound: 'any',
-                server: 'local',
-            },
         ],
-        fakeip: {
-            enabled: true,
-            inet4_range: '198.18.0.0/15',
-            inet6_range: 'fc00::/18',
-        },
-        independent_cache: true,
+        strategy: 'ipv4_only',
     },
     inbounds: [
         {
@@ -219,13 +212,11 @@ export const DEFAULT_TEMPLATE_SINGBOX = {
             mtu: 9000,
             interface_name: 'tun125',
             tag: 'tun-in',
-            inet4_address: '172.19.0.1/30',
-            inet6_address: 'fdfe:dcba:9876::1/126',
             auto_route: true,
             strict_route: true,
             endpoint_independent_nat: true,
             stack: 'mixed',
-            sniff: true,
+            address: ['172.19.0.1/30', 'fdfe:dcba:9876::1/126'],
             platform: {
                 http_proxy: {
                     enabled: true,
@@ -239,7 +230,6 @@ export const DEFAULT_TEMPLATE_SINGBOX = {
             tag: 'mixed-in',
             listen: '127.0.0.1',
             listen_port: 2412,
-            sniff: true,
             users: [],
             set_system_proxy: false,
         },
@@ -254,6 +244,9 @@ export const DEFAULT_TEMPLATE_SINGBOX = {
         {
             type: 'direct',
             tag: 'direct',
+            domain_resolver: {
+                server: 'local',
+            },
         },
     ],
     route: {
@@ -280,7 +273,7 @@ export const DEFAULT_TEMPLATE_SINGBOX = {
             },
         ],
         auto_detect_interface: true,
-        override_android_vpn: true,
+        default_domain_resolver: 'local',
     },
     experimental: {
         clash_api: {

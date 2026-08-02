@@ -8,6 +8,9 @@ import { ResolvedProxyConfig } from '../resolve-proxy/interfaces';
 
 interface OutboundConfig {
     flow?: string;
+    domain_resolver?: {
+        server: string;
+    };
     method?: string;
     multiplex?: unknown;
     network?: string;
@@ -301,7 +304,18 @@ export class SingBoxGeneratorService {
         template: Record<string, unknown>,
         userOutbounds: OutboundConfig[],
     ): string {
-        const allOutbounds = [...(template.outbounds as OutboundConfig[]), ...userOutbounds];
+        const templateDns = template.dns as { servers?: Array<{ tag?: string }> } | undefined;
+        const hasLocalDnsServer = templateDns?.servers?.some((server) => server.tag === 'local');
+        const resolvedUserOutbounds = hasLocalDnsServer
+            ? userOutbounds.map((outbound) => ({
+                  ...outbound,
+                  domain_resolver: outbound.domain_resolver ?? { server: 'local' },
+              }))
+            : userOutbounds;
+        const allOutbounds = [
+            ...(template.outbounds as OutboundConfig[]),
+            ...resolvedUserOutbounds,
+        ];
 
         const urltestTags = allOutbounds
             .filter((o) => PROXY_PROTOCOL_TYPES.has(o.type))

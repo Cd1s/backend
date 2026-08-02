@@ -10,6 +10,7 @@ const requiredFiles = [
     'libs/contract/constants/config-profiles/core-type.constant.ts',
     'prisma/migrations/20260716190000_add_config_profile_core_type/migration.sql',
     'scripts/validate-mihomo-anytls.cjs',
+    'scripts/validate-singbox-1.13-compatibility.cjs',
     'scripts/validate-seed-core-inbounds.cjs',
     'scripts/validate-shadowrocket-anytls.cjs',
 ];
