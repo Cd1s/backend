@@ -189,18 +189,20 @@ test_workflow_contract() {
     assert_file_contains "$WORKFLOW" 'workflow_dispatch:' || return 1
     assert_file_contains "$WORKFLOW" 'UPSTREAM_SYNC_REPORT_PATH' || return 1
     assert_file_contains "$WORKFLOW" 'actions/upload-artifact@v4' || return 1
-    assert_file_contains "$WORKFLOW" 'if: ${{ always() && steps.sync.outcome == '\''failure'\'' }}' || return 1
+    assert_file_contains "$WORKFLOW" 'if: ${{ failure() }}' || return 1
     assert_file_contains "$WORKFLOW" 'git push origin HEAD:singbox' || return 1
     assert_file_contains "$WORKFLOW" 'Verify pushed final commit' || return 1
     assert_file_contains "$WORKFLOW" 'Sync official fork Release' || return 1
     assert_file_contains "$WORKFLOW" 'if: steps.sync.outcome == '\''success'\''' || return 1
-    assert_file_contains "$WORKFLOW" 'package_version_mismatch' || return 1
+    assert_file_contains "$WORKFLOW" 'upstream-sync-lib.sh package' || return 1
+    assert_file_contains "$WORKFLOW" 'upstream-sync-lib.sh preflight' || return 1
+    assert_file_contains "$WORKFLOW" '*/5 * * * *' || return 1
     if grep -Eq '(__RW_METADATA_VERSION|RWNODE_VERSION)=[0-9]' "$WORKFLOW"; then
         return 1
     fi
 
     local merge_line push_line verify_line release_line
-    merge_line="$(grep -n -m1 -E 'git merge --no-edit|sync-upstream.cjs' "$WORKFLOW" | cut -d: -f1)"
+    merge_line="$(grep -n -m1 'upstream-sync-lib.sh merge' "$WORKFLOW" | cut -d: -f1)"
     push_line="$(grep -n -m1 'git push origin HEAD:singbox' "$WORKFLOW" | cut -d: -f1)"
     verify_line="$(grep -n -m1 'name: Verify pushed final commit' "$WORKFLOW" | cut -d: -f1)"
     release_line="$(grep -n -m1 'name: Sync official fork Release' "$WORKFLOW" | cut -d: -f1)"
