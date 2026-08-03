@@ -107,6 +107,42 @@ EOF
     result="$(cd "$repo"; PATH="$mock_bin:$PATH" GITHUB_OUTPUT="$output" UPSTREAM_REPO=remnawave/test bash "$LIB" resolve 2>&1)" && return 1
     contains "$result" 'reason=release_query_error'
 }
+test_historical_tag_collision_fetch_is_safe() {
+    fixture_root="$(mktemp -d)"
+    repo="$fixture_root/repo"
+    upstream_source="$fixture_root/upstream-source"
+    upstream="$fixture_root/upstream.git"
+    mkdir -p "$repo" "$upstream_source"
+    git init -q "$repo"
+    git -C "$repo" config user.name test
+    git -C "$repo" config user.email test@example.invalid
+    git -C "$repo" checkout -q -b singbox
+    printf 'fork\n' >"$repo/state"
+    git -C "$repo" add state
+    git -C "$repo" commit -q -m fork
+    fork_tag_sha="$(git -C "$repo" rev-parse HEAD)"
+    git -C "$repo" tag 3.2.0
+    git init -q "$upstream_source"
+    git -C "$upstream_source" config user.name upstream
+    git -C "$upstream_source" config user.email upstream@example.invalid
+    git -C "$upstream_source" checkout -q -b main
+    printf 'upstream\n' >"$upstream_source/state"
+    git -C "$upstream_source" add state
+    git -C "$upstream_source" commit -q -m upstream
+    upstream_sha="$(git -C "$upstream_source" rev-parse HEAD)"
+    git -C "$upstream_source" tag 3.2.0
+    git init -q --bare "$upstream"
+    git -C "$upstream_source" remote add origin "$upstream"
+    git -C "$upstream_source" push -q origin main refs/tags/3.2.0
+    git -C "$repo" remote add upstream "$upstream"
+
+    # RED: this is the previous workflow command and must fail on a fork-owned tag collision.
+    git -C "$repo" fetch --no-tags upstream main >/dev/null 2>&1 || return 1
+    [ "$(git -C "$repo" rev-parse refs/tags/3.2.0)" = "$fork_tag_sha" ] || return 1
+    [ "$(git -C "$repo" rev-parse refs/remotes/upstream/main)" = "$upstream_sha" ] || return 1
+    ! file_contains "$WORKFLOW" 'git fetch --force' || return 1
+    ! file_contains "$WORKFLOW" 'refs/tags/${{ steps.release.outputs.tag }}:refs/tags/upstream-release-${{ steps.release.outputs.tag }}'
+}
 
 test_clean_merge_and_already_up_to_date() {
     make_repo
@@ -274,9 +310,8 @@ test_workflow_contract_and_order() {
     file_contains "$WORKFLOW" 'WORKFLOW_TOKEN' || return 1
     file_contains "$WORKFLOW" 'upstream-sync-lib.sh preflight' || return 1
     file_contains "$WORKFLOW" 'upstream-sync-lib.sh package' || return 1
-    file_contains "$WORKFLOW" 'refs/tags/${{ steps.release.outputs.tag }}:refs/tags/upstream-release-${{ steps.release.outputs.tag }}' || return 1
+    ! file_contains "$WORKFLOW" 'refs/tags/${{ steps.release.outputs.tag }}:refs/tags/upstream-release-${{ steps.release.outputs.tag }}' || return 1
     file_contains "$WORKFLOW" 'git fetch --no-tags upstream main' || return 1
-    file_contains "$WORKFLOW" 'git fetch --no-tags upstream "refs/tags/${{ steps.release.outputs.tag }}:refs/tags/upstream-release-${{ steps.release.outputs.tag }}"' || return 1
     file_contains "$WORKFLOW" 'Install official sing-box 1.13.15 validator' || return 1
     file_contains "$WORKFLOW" 'Install official Mihomo validator' || return 1
     file_contains "$WORKFLOW" 'token: ${{ github.token }}' || return 1
@@ -343,6 +378,7 @@ run_case() { if "$1"; then pass "$1"; else fail "$1"; fi; }
 run_case test_release_resolver_stable_and_prerelease
 run_case test_release_resolver_empty_is_classified
 run_case test_release_resolver_network_is_classified
+run_case test_historical_tag_collision_fetch_is_safe
 run_case test_clean_merge_and_already_up_to_date
 run_case test_conflict_reports_and_aborts_without_push
 run_case test_merge_abort_failure_is_not_hidden
