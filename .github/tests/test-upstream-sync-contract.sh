@@ -194,12 +194,12 @@ test_release_structure_mismatch_fails() {
 test_workflow_can_push_workflow_files() {
     assert_file_contains "$WORKFLOW" 'contents: write' || return 1
     assert_file_contains "$WORKFLOW" 'WORKFLOW_TOKEN' || return 1
-    assert_file_contains "$WORKFLOW" 'GH_TOKEN: ${{ github.token }}' || return 1
-    assert_file_contains "$WORKFLOW" 'GITHUB_TOKEN: ${{ github.token }}' || return 1
-    assert_file_contains "$WORKFLOW" 'WORKFLOW_CHANGED: ${{ steps.sync.outputs.workflow_changed }}' || return 1
+    assert_file_contains "$WORKFLOW" 'GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}' || return 1
+    assert_file_contains "$WORKFLOW" 'PACKAGE_TOKEN: ${{ github.token }}' || return 1
+    ! assert_file_contains "$WORKFLOW" 'GITHUB_TOKEN: ${{ github.token }}' || return 1
+    ! assert_file_contains "$WORKFLOW" 'WORKFLOW_CHANGED:' || return 1
     assert_file_contains "$WORKFLOW" 'GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth_header"' || return 1
     ! assert_file_contains "$WORKFLOW" 'Configure ephemeral GitHub auth for push' || return 1
-    ! assert_file_contains "$WORKFLOW" 'PACKAGE_TOKEN:' || return 1
     if grep -Eq '^[[:space:]]+workflows:[[:space:]]+write[[:space:]]*$' "$WORKFLOW"; then
         return 1
     fi
@@ -227,8 +227,9 @@ test_workflow_contract() {
     assert_file_contains "$WORKFLOW" 'upstream-sync-lib.sh package' || return 1
     assert_file_contains "$WORKFLOW" 'upstream-sync-lib.sh preflight' || return 1
     assert_file_contains "$WORKFLOW" 'GH_TOKEN: ${{ github.token }}' || return 1
-    assert_file_contains "$WORKFLOW" 'GITHUB_TOKEN: ${{ github.token }}' || return 1
-    assert_file_contains "$WORKFLOW" 'WORKFLOW_CHANGED: ${{ steps.sync.outputs.workflow_changed }}' || return 1
+    assert_file_contains "$WORKFLOW" 'PACKAGE_TOKEN: ${{ github.token }}' || return 1
+    ! assert_file_contains "$WORKFLOW" 'GITHUB_TOKEN: ${{ github.token }}' || return 1
+    ! assert_file_contains "$WORKFLOW" 'WORKFLOW_CHANGED:' || return 1
     assert_file_contains "$WORKFLOW" '*/5 * * * *' || return 1
     if grep -Eq '(__RW_METADATA_VERSION|RWNODE_VERSION)=[0-9]' "$WORKFLOW"; then
         return 1
