@@ -160,9 +160,19 @@ capability_preflight() {
     fi
     dry_run_log="$(mktemp)"
     preflight_ref="refs/heads/singbox-capability-preflight-${GITHUB_RUN_ID:-local}"
-    if ! git_cmd push --dry-run origin "HEAD:$preflight_ref" >"$dry_run_log" 2>&1; then
+    dry_run_attempt=1
+    dry_run_ok=false
+    while [ "$dry_run_attempt" -le 3 ]; do
+        if git_cmd push --dry-run origin "HEAD:$preflight_ref" >"$dry_run_log" 2>&1; then
+            dry_run_ok=true
+            break
+        fi
         cat "$dry_run_log" >&2
-        fail_reason contents_write_dry_run_denied
+        if [ "$dry_run_attempt" -lt 3 ]; then sleep 5; fi
+        dry_run_attempt=$((dry_run_attempt + 1))
+    done
+    if [ "$dry_run_ok" != true ]; then
+        fail_reason contents_write_dry_run_denied attempts=$((dry_run_attempt - 1))
     fi
     echo "capability_preflight=passed repository_id=$repo_id contents=write release=read workflow_changed=${WORKFLOW_CHANGED:-false}"
 }
