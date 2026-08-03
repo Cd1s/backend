@@ -190,6 +190,7 @@ EOF
 
 test_workflow_contract_and_order() {
     file_contains "$WORKFLOW" '*/5 * * * *' || return 1
+    [ -z "$(awk '/^jobs:/{exit} /\$\{\{ runner\.temp \}\}/{print NR}' "$WORKFLOW")" ] || return 1
     file_contains "$WORKFLOW" 'workflow_dispatch:' || return 1
     file_contains "$WORKFLOW" 'cancel-in-progress: false' || return 1
     file_contains "$WORKFLOW" 'WORKFLOW_TOKEN' || return 1
