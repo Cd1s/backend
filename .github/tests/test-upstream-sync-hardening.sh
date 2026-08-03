@@ -190,6 +190,7 @@ esac
 if [ "${1:-}" = api ]; then
     case "${2:-}" in
         repos/Cd1s/test) printf '{"permissions":{"push":true}}\n' ;;
+        user/packages*) printf '[]\n' ;;
         *) printf '{}\n' ;;
     esac
     exit 0
@@ -197,8 +198,8 @@ fi
 exit 2
 EOF
     chmod +x "$mock_bin/gh"
-    result="$(cd "$repo"; PATH="$mock_bin:$PATH" GIT_BIN="$mock_bin/git" REAL_GIT="$real_git" GITHUB_REPOSITORY=Cd1s/test WORKFLOW_TOKEN=present GH_TOKEN=present FAIL_DRY_RUN=1 GH_BEHAVIOR=workflow-denied bash "$LIB" preflight 2>&1)" && return 1
-    contains "$result" 'reason=contents_write_dry_run_denied'
+    result="$(cd "$repo"; PATH="$mock_bin:$PATH" GITHUB_REPOSITORY=Cd1s/test WORKFLOW_TOKEN=present GH_TOKEN=present PACKAGE_TOKEN=present SKIP_GIT_DRY_RUN=true GH_BEHAVIOR=workflow-denied bash "$LIB" preflight 2>&1)" && return 1
+    contains "$result" 'reason=workflows_write_denied'
 }
 
 test_capability_preflight_does_not_trust_actions_context() {
@@ -216,8 +217,8 @@ fi
 exit 2
 EOF
     chmod +x "$mock_bin/gh"
-    result="$(cd "$repo"; PATH="$mock_bin:$PATH" GIT_BIN="$mock_bin/git" REAL_GIT="$real_git" GITHUB_REPOSITORY=Cd1s/test WORKFLOW_TOKEN=present GH_TOKEN=present PACKAGE_TOKEN=present FAIL_DRY_RUN=1 GITHUB_ACTIONS=true bash "$LIB" preflight 2>&1)" && return 1
-    contains "$result" 'reason=contents_write_dry_run_denied'
+    result="$(cd "$repo"; PATH="$mock_bin:$PATH" GITHUB_REPOSITORY=Cd1s/test WORKFLOW_TOKEN=present GH_TOKEN=present PACKAGE_TOKEN=present SKIP_GIT_DRY_RUN=true GITHUB_ACTIONS=true bash "$LIB" preflight 2>&1)" && return 1
+    contains "$result" 'reason=contents_write_denied'
 }
 
 test_capability_preflight_uses_package_token() {
@@ -236,8 +237,33 @@ fi
 exit 2
 EOF
     chmod +x "$mock_bin/gh"
-    result="$(cd "$repo"; PATH="$mock_bin:$PATH" GIT_BIN="$mock_bin/git" REAL_GIT="$real_git" GITHUB_REPOSITORY=Cd1s/test WORKFLOW_TOKEN=workflow-token PACKAGE_TOKEN=package-token GH_TOKEN=package-token bash "$LIB" preflight 2>&1)" || return 1
+    result="$(cd "$repo"; PATH="$mock_bin:$PATH" GITHUB_REPOSITORY=Cd1s/test WORKFLOW_TOKEN=workflow-token PACKAGE_TOKEN=package-token GH_TOKEN=workflow-token SKIP_GIT_DRY_RUN=true bash "$LIB" preflight 2>&1)" || return 1
     contains "$result" 'capability_preflight=passed'
+}
+
+test_capability_preflight_rejects_missing_workflow_token_v2() {
+    make_repo
+    result="$(cd "$repo"; PATH="$mock_bin:$PATH" GITHUB_REPOSITORY=Cd1s/test WORKFLOW_TOKEN= bash "$LIB" preflight 2>&1)" && return 1
+    contains "$result" 'reason=missing_WORKFLOW_TOKEN requires_contents_workflows_packages_release_write'
+}
+
+test_capability_preflight_rejects_actions_bypass_v2() {
+    make_repo
+    cat >"$mock_bin/gh" <<'EOF'
+#!/usr/bin/env bash
+set -eu
+if [ "${1:-}" = api ]; then
+    case "${2:-}" in
+        repos/Cd1s/test) printf '{"permissions":{"push":false}}\n' ;;
+        *) printf '{}\n' ;;
+    esac
+    exit 0
+fi
+exit 2
+EOF
+    chmod +x "$mock_bin/gh"
+    result="$(cd "$repo"; PATH="$mock_bin:$PATH" GITHUB_REPOSITORY=Cd1s/test WORKFLOW_TOKEN=present GH_TOKEN=present PACKAGE_TOKEN=present SKIP_GIT_DRY_RUN=true GITHUB_ACTIONS=true bash "$LIB" preflight 2>&1)" && return 1
+    contains "$result" 'reason=contents_write_denied'
 }
 
 test_workflow_contract_and_order() {
@@ -253,9 +279,9 @@ test_workflow_contract_and_order() {
     file_contains "$WORKFLOW" 'git fetch --no-tags upstream "refs/tags/${{ steps.release.outputs.tag }}:refs/tags/upstream-release-${{ steps.release.outputs.tag }}"' || return 1
     file_contains "$WORKFLOW" 'Install official sing-box 1.13.15 validator' || return 1
     file_contains "$WORKFLOW" 'Install official Mihomo validator' || return 1
-    file_contains "$WORKFLOW" 'PACKAGE_TOKEN: ${{ github.token }}' || return 1
     file_contains "$WORKFLOW" 'token: ${{ github.token }}' || return 1
     file_contains "$WORKFLOW" 'GH_TOKEN: ${{ github.token }}' || return 1
+    file_contains "$WORKFLOW" 'PACKAGE_TOKEN: ${{ github.token }}' || return 1
     file_contains "$WORKFLOW" 'WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}'
     file_contains "$WORKFLOW" 'GIT_CONFIG_KEY_0=http.https://github.com/.extraheader' || return 1
     ! file_contains "$WORKFLOW" 'Configure ephemeral GitHub auth for push' || return 1
@@ -267,6 +293,22 @@ test_workflow_contract_and_order() {
     [ "$preflight_line" -lt "$docker_line" ] || return 1
 }
 
+test_push_auth_never_duplicates_checkout_extraheader() {
+    file_contains "$WORKFLOW" 'GITHUB_TOKEN: ${{ github.token }}' || return 1
+    file_contains "$WORKFLOW" 'WORKFLOW_CHANGED: ${{ steps.sync.outputs.workflow_changed }}' || return 1
+    [ "$(grep -Fc 'if [ "$push_token" = "$GITHUB_TOKEN" ]; then' "$WORKFLOW")" -eq 2 ] || return 1
+    [ "$(grep -Fc 'git config --unset-all http.https://github.com/.extraheader || true' "$WORKFLOW")" -eq 2 ] || return 1
+    [ "$(grep -Fc 'GIT_CONFIG_COUNT=1' "$WORKFLOW")" -eq 2 ] || return 1
+    awk '
+        /if \[.*push_token.*GITHUB_TOKEN.*\]; then/ { in_auth=1; saw_else=0; next }
+        in_auth && /else/ { saw_else=1; next }
+        in_auth && /git config --unset-all http\.https:\/\/github\.com\/\.extraheader \|\| true/ && !saw_else { exit 1 }
+        in_auth && /GIT_CONFIG_COUNT=1/ && !saw_else { exit 1 }
+        in_auth && /fi/ { if (!saw_else) exit 1; in_auth=0 }
+        END { if (in_auth) exit 1 }
+    ' "$WORKFLOW"
+}
+
 run_case() { if "$1"; then pass "$1"; else fail "$1"; fi; }
 run_case test_release_resolver_stable_and_prerelease
 run_case test_release_resolver_empty_is_classified
@@ -276,10 +318,10 @@ run_case test_conflict_reports_and_aborts_without_push
 run_case test_merge_abort_failure_is_not_hidden
 run_case test_config_profile_conflict_resolution_preserves_dual_core_paths
 run_case test_package_contract_uses_release_commit_and_monorepo_paths
-run_case test_capability_preflight_fails_before_build
-run_case test_capability_preflight_does_not_trust_actions_context
-run_case test_capability_preflight_uses_package_token
+run_case test_capability_preflight_rejects_missing_workflow_token_v2
+run_case test_capability_preflight_rejects_actions_bypass_v2
 run_case test_workflow_contract_and_order
+run_case test_push_auth_never_duplicates_checkout_extraheader
 
 if [ "$failures" -ne 0 ]; then
     printf '%s test(s) failed\n' "$failures" >&2
