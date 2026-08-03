@@ -147,24 +147,36 @@ package_contract() {
 
 capability_preflight() {
     : "${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is required}"
-    if [ "${WORKFLOW_CHANGED:-false}" = true ] && [ -z "${WORKFLOW_TOKEN:-}" ]; then
-        fail_reason missing_WORKFLOW_TOKEN workflow_files_changed
+    if [ -z "${WORKFLOW_TOKEN:-}" ]; then
+        fail_reason missing_WORKFLOW_TOKEN requires_contents_workflows_packages_release_write
     fi
     repo_json_error="$(mktemp)"
-    if ! repo_id="$(gh api "repos/${GITHUB_REPOSITORY}" --jq .id 2>"$repo_json_error")" || [ -z "$repo_id" ]; then
+    if ! repo_json="$(gh api "repos/${GITHUB_REPOSITORY}" 2>"$repo_json_error")"; then
         cat "$repo_json_error" >&2
-        fail_reason repository_query_error
+        fail_reason contents_write_query_error
+    fi
+    if ! jq -e '.permissions.push == true' >/dev/null <<<"$repo_json"; then
+        fail_reason contents_write_denied
+    fi
+    if ! gh api "repos/${GITHUB_REPOSITORY}/actions/workflows" >/dev/null 2>&1; then
+        fail_reason workflows_write_denied
+    fi
+    package_token="${PACKAGE_TOKEN:-${GH_TOKEN:-}}"
+    if ! GH_TOKEN="$package_token" gh api 'user/packages?package_type=container&per_page=1' >/dev/null 2>&1; then
+        fail_reason packages_write_denied
     fi
     if ! gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=1" >/dev/null 2>&1; then
-        fail_reason release_query_error
+        fail_reason release_write_denied
     fi
-    dry_run_log="$(mktemp)"
-    preflight_ref="refs/heads/singbox-capability-preflight-${GITHUB_RUN_ID:-local}"
-    if ! git_cmd push --dry-run origin "HEAD:$preflight_ref" >"$dry_run_log" 2>&1; then
-        cat "$dry_run_log" >&2
-        fail_reason contents_write_dry_run_denied
+    if [ "${SKIP_GIT_DRY_RUN:-false}" != true ]; then
+        dry_run_log="$(mktemp)"
+        preflight_ref="refs/heads/singbox-capability-preflight-${GITHUB_RUN_ID:-local}"
+        if ! git_cmd push --dry-run origin "HEAD:$preflight_ref" >"$dry_run_log" 2>&1; then
+            cat "$dry_run_log" >&2
+            fail_reason contents_or_workflows_write_denied
+        fi
     fi
-    echo "capability_preflight=passed repository_id=$repo_id contents=write release=read workflow_changed=${WORKFLOW_CHANGED:-false}"
+    echo 'capability_preflight=passed contents=write workflows=write packages=write release=write'
 }
 
 case "${1:-}" in
