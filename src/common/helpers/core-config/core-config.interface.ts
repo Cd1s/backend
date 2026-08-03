@@ -25,4 +25,5 @@ export interface ICoreConfig {
         inboundsUserSets: Map<string, HashedSet>,
     ): object;
     fixIncorrectServerNames(): void;
+    validateOutbounds?(): void;
 }

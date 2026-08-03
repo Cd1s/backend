@@ -293,6 +293,10 @@ export class ConfigProfileService {
             const validatedConfig = createCoreConfig(nextCoreType, nextConfig);
             validatedConfig.cleanInboundClients(false);
             validatedConfig.fixIncorrectServerNames();
+            if (nextCoreType === CONFIG_PROFILE_CORE_TYPE.XRAY) {
+                validatedConfig.validateOutbounds?.();
+            }
+
             const sortedConfig = validatedConfig.getSortedConfig();
             const inbounds = validatedConfig.getAllInbounds();
 
