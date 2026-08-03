@@ -46,6 +46,9 @@ if [ "${1:-}" = ls-remote ]; then
     printf '%s\trefs/tags/%s^{}\n' "$FAKE_UPSTREAM_COMMIT" "$FAKE_TAG"
     exit 0
 fi
+if [ "${1:-}" = push ] && [ "${2:-}" = --dry-run ] && [ "${FAIL_DRY_RUN:-0}" = 1 ]; then
+    exit 77
+fi
 if [ "${1:-}" = merge ] && [ "${2:-}" = --abort ] && [ "${FAKE_ABORT:-0}" = 1 ]; then
     exit 77
 fi
@@ -194,8 +197,27 @@ fi
 exit 2
 EOF
     chmod +x "$mock_bin/gh"
-    result="$(cd "$repo"; PATH="$mock_bin:$PATH" GITHUB_REPOSITORY=Cd1s/test WORKFLOW_TOKEN=present GH_TOKEN=present SKIP_GIT_DRY_RUN=true GH_BEHAVIOR=workflow-denied bash "$LIB" preflight 2>&1)" && return 1
-    contains "$result" 'reason=workflows_write_denied'
+    result="$(cd "$repo"; PATH="$mock_bin:$PATH" GIT_BIN="$mock_bin/git" REAL_GIT="$real_git" GITHUB_REPOSITORY=Cd1s/test WORKFLOW_TOKEN=present GH_TOKEN=present FAIL_DRY_RUN=1 GH_BEHAVIOR=workflow-denied bash "$LIB" preflight 2>&1)" && return 1
+    contains "$result" 'reason=contents_write_dry_run_denied'
+}
+
+test_capability_preflight_does_not_trust_actions_context() {
+    make_repo
+    cat >"$mock_bin/gh" <<'EOF'
+#!/usr/bin/env bash
+set -eu
+if [ "${1:-}" = api ]; then
+    case "${2:-}" in
+        repos/Cd1s/test) printf '{"permissions":{"push":false}}\n' ;;
+        *) printf '{}\n' ;;
+    esac
+    exit 0
+fi
+exit 2
+EOF
+    chmod +x "$mock_bin/gh"
+    result="$(cd "$repo"; PATH="$mock_bin:$PATH" GIT_BIN="$mock_bin/git" REAL_GIT="$real_git" GITHUB_REPOSITORY=Cd1s/test WORKFLOW_TOKEN=present GH_TOKEN=present PACKAGE_TOKEN=present FAIL_DRY_RUN=1 GITHUB_ACTIONS=true bash "$LIB" preflight 2>&1)" && return 1
+    contains "$result" 'reason=contents_write_dry_run_denied'
 }
 
 test_capability_preflight_uses_package_token() {
@@ -214,7 +236,7 @@ fi
 exit 2
 EOF
     chmod +x "$mock_bin/gh"
-    result="$(cd "$repo"; PATH="$mock_bin:$PATH" GITHUB_REPOSITORY=Cd1s/test WORKFLOW_TOKEN=workflow-token PACKAGE_TOKEN=package-token GH_TOKEN=package-token SKIP_GIT_DRY_RUN=true bash "$LIB" preflight 2>&1)" || return 1
+    result="$(cd "$repo"; PATH="$mock_bin:$PATH" GIT_BIN="$mock_bin/git" REAL_GIT="$real_git" GITHUB_REPOSITORY=Cd1s/test WORKFLOW_TOKEN=workflow-token PACKAGE_TOKEN=package-token GH_TOKEN=package-token bash "$LIB" preflight 2>&1)" || return 1
     contains "$result" 'capability_preflight=passed'
 }
 
@@ -233,11 +255,11 @@ test_workflow_contract_and_order() {
     file_contains "$WORKFLOW" 'Install official Mihomo validator' || return 1
     file_contains "$WORKFLOW" 'PACKAGE_TOKEN: ${{ github.token }}' || return 1
     file_contains "$WORKFLOW" 'token: ${{ github.token }}' || return 1
-    file_contains "$WORKFLOW" 'GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}' || return 1
+    file_contains "$WORKFLOW" 'GH_TOKEN: ${{ github.token }}' || return 1
     file_contains "$WORKFLOW" 'WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}'
     file_contains "$WORKFLOW" 'GIT_CONFIG_KEY_0=http.https://github.com/.extraheader' || return 1
-    file_contains "$WORKFLOW" 'GIT_CONFIG_VALUE_0=AUTHORIZATION: basic' || return 1
     ! file_contains "$WORKFLOW" 'Configure ephemeral GitHub auth for push' || return 1
+    file_contains "$WORKFLOW" 'GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth_header"' || return 1
     file_contains "$WORKFLOW" 'actions/upload-artifact@v4' || return 1
     file_contains "$WORKFLOW" 'git push origin HEAD:singbox' || return 1
     preflight_line="$(grep -n -m1 'upstream-sync-lib.sh preflight' "$WORKFLOW" | cut -d: -f1)" || return 1
@@ -255,6 +277,7 @@ run_case test_merge_abort_failure_is_not_hidden
 run_case test_config_profile_conflict_resolution_preserves_dual_core_paths
 run_case test_package_contract_uses_release_commit_and_monorepo_paths
 run_case test_capability_preflight_fails_before_build
+run_case test_capability_preflight_does_not_trust_actions_context
 run_case test_capability_preflight_uses_package_token
 run_case test_workflow_contract_and_order
 
