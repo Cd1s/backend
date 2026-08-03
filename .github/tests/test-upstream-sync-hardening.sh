@@ -144,6 +144,16 @@ test_merge_abort_failure_is_not_hidden() {
     contains "$output" 'reason=merge_abort_failed'
 }
 
+test_config_profile_conflict_resolution_preserves_dual_core_paths() {
+    service="$ROOT/src/modules/config-profiles/config-profile.service.ts"
+    file_contains "$service" 'createCoreConfig' || return 1
+    file_contains "$service" 'CONFIG_PROFILE_CORE_TYPE' || return 1
+    file_contains "$service" 'coreType?: TConfigProfileCoreType' || return 1
+    file_contains "$service" 'if (nextCoreType === CONFIG_PROFILE_CORE_TYPE.XRAY)' || return 1
+    file_contains "$service" 'validatedConfig.validateOutbounds?.()' || return 1
+    ! file_contains "$service" 'new XRayConfig'
+}
+
 test_package_contract_uses_release_commit_and_monorepo_paths() {
     make_repo
     printf '{"name":"root","version":"2.8.0"}\n' >"$repo/package.json"
@@ -188,6 +198,26 @@ EOF
     contains "$result" 'reason=workflows_write_denied'
 }
 
+test_capability_preflight_uses_package_token() {
+    make_repo
+    cat >"$mock_bin/gh" <<'EOF'
+#!/usr/bin/env bash
+set -eu
+if [ "${1:-}" = api ]; then
+    case "${2:-}" in
+        repos/Cd1s/test) printf '{"permissions":{"push":true}}\n' ;;
+        user/packages*) [ "${GH_TOKEN:-}" = package-token ] || { echo 'package token denied' >&2; exit 1; } ;;
+        *) printf '{}\n' ;;
+    esac
+    exit 0
+fi
+exit 2
+EOF
+    chmod +x "$mock_bin/gh"
+    result="$(cd "$repo"; PATH="$mock_bin:$PATH" GITHUB_REPOSITORY=Cd1s/test WORKFLOW_TOKEN=workflow-token PACKAGE_TOKEN=package-token GH_TOKEN=package-token SKIP_GIT_DRY_RUN=true bash "$LIB" preflight 2>&1)" || return 1
+    contains "$result" 'capability_preflight=passed'
+}
+
 test_workflow_contract_and_order() {
     file_contains "$WORKFLOW" '*/5 * * * *' || return 1
     [ -z "$(awk '/^jobs:/{exit} /\$\{\{ runner\.temp \}\}/{print NR}' "$WORKFLOW")" ] || return 1
@@ -215,8 +245,10 @@ run_case test_release_resolver_network_is_classified
 run_case test_clean_merge_and_already_up_to_date
 run_case test_conflict_reports_and_aborts_without_push
 run_case test_merge_abort_failure_is_not_hidden
+run_case test_config_profile_conflict_resolution_preserves_dual_core_paths
 run_case test_package_contract_uses_release_commit_and_monorepo_paths
 run_case test_capability_preflight_fails_before_build
+run_case test_capability_preflight_uses_package_token
 run_case test_workflow_contract_and_order
 
 if [ "$failures" -ne 0 ]; then

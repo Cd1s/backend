@@ -155,7 +155,8 @@ capability_preflight() {
     if ! gh api "repos/${GITHUB_REPOSITORY}/actions/workflows" >/dev/null 2>&1; then
         fail_reason workflows_write_denied
     fi
-    if ! gh api 'user/packages?package_type=container&per_page=1' >/dev/null 2>&1; then
+    package_token="${PACKAGE_TOKEN:-${GH_TOKEN:-}}"
+    if ! GH_TOKEN="$package_token" gh api 'user/packages?package_type=container&per_page=1' >/dev/null 2>&1; then
         fail_reason packages_write_denied
     fi
     if ! gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=1" >/dev/null 2>&1; then
