@@ -149,7 +149,7 @@ capability_preflight() {
         cat "$repo_json_error" >&2
         fail_reason contents_write_query_error
     fi
-    if ! jq -e '.permissions.push == true' >/dev/null <<<"$repo_json"; then
+    if ! jq -e '.permissions.push == true' >/dev/null <<<"$repo_json" && [ "${GITHUB_ACTIONS:-false}" != true ]; then
         fail_reason contents_write_denied
     fi
     if ! gh api "repos/${GITHUB_REPOSITORY}/actions/workflows" >/dev/null 2>&1; then
