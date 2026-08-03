@@ -145,6 +145,21 @@ package_contract() {
     echo 'package_contract=passed'
 }
 
+verify_package_publish_capability() {
+    [ "${PACKAGE_PUBLISH_REQUIRED:-false}" = true ] || return 0
+    package_error="$(mktemp)"
+    if ! package_headers="$(gh api user --include 2>"$package_error")"; then
+        cat "$package_error" >&2
+        fail_reason packages_write_query_error
+    fi
+    package_scopes="$(awk 'tolower($0) ~ /^x-oauth-scopes:/ { sub(/^[^:]*:[[:space:]]*/, ""); print; exit }' <<<"$package_headers" | tr -d '[:space:]')"
+    case ",$package_scopes," in
+        *,write:packages,*) ;;
+        *) fail_reason packages_write_denied ;;
+    esac
+    echo 'package_publish_capability=verified scope=write:packages'
+}
+
 capability_preflight() {
     : "${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is required}"
     if [ "${WORKFLOW_CHANGED:-false}" = true ] && [ -z "${WORKFLOW_TOKEN:-}" ]; then
@@ -158,6 +173,7 @@ capability_preflight() {
     if ! gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=1" >/dev/null 2>&1; then
         fail_reason release_query_error
     fi
+    verify_package_publish_capability
     dry_run_log="$(mktemp)"
     preflight_ref="refs/heads/singbox-capability-preflight-${GITHUB_RUN_ID:-local}"
     dry_run_attempt=1
