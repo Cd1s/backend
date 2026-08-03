@@ -12,8 +12,9 @@ permissions:
   packages: write
   actions: read
 
-# WORKFLOW_TOKEN is only required when the merge result changes a workflow file; GitHub
-# requires elevated workflow permissions for that final push.
+# `workflows` is a GitHub App/PAT repository permission, not an Actions `permissions` key.
+# WORKFLOW_TOKEN must grant contents:write + workflows:write; package/release access is
+# preflighted before any image build.
 
 concurrency:
   group: upstream-sync-backend
@@ -138,6 +139,7 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$WORKFLOW_TOKEN"
+          git config --local --unset-all http.https://github.com/.extraheader || true
           auth_header="$(printf 'x-access-token:%s' "$WORKFLOW_TOKEN" | base64 | tr -d '\n')"
           GIT_CONFIG_COUNT=1 \
           GIT_CONFIG_KEY_0=http.https://github.com/.extraheader \
@@ -156,6 +158,7 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$WORKFLOW_TOKEN"
+          git config --local --unset-all http.https://github.com/.extraheader || true
           auth_header="$(printf 'x-access-token:%s' "$WORKFLOW_TOKEN" | base64 | tr -d '\n')"
           GIT_CONFIG_COUNT=1 \
           GIT_CONFIG_KEY_0=http.https://github.com/.extraheader \

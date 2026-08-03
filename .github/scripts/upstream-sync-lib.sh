@@ -172,7 +172,7 @@ capability_preflight() {
         dry_run_log="$(mktemp)"
         preflight_ref="refs/heads/singbox-capability-preflight-${GITHUB_RUN_ID:-local}"
         if ! git_cmd push --dry-run origin "HEAD:$preflight_ref" >"$dry_run_log" 2>&1; then
-            echo 'git push dry-run rejected; workflow/contents write capability is unavailable' >&2
+            cat "$dry_run_log" >&2
             fail_reason contents_or_workflows_write_denied
         fi
     fi
