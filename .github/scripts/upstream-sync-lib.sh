@@ -147,6 +147,15 @@ package_contract() {
 
 verify_package_publish_capability() {
     [ "${PACKAGE_PUBLISH_REQUIRED:-false}" = true ] || return 0
+    if [ -z "${WORKFLOW_TOKEN:-}" ]; then
+        package_login_error="$(mktemp)"
+        if ! command -v docker >/dev/null 2>&1 || ! printf '%s' "${GH_TOKEN:-}" | docker login ghcr.io --username github-actions[bot] --password-stdin >"$package_login_error" 2>&1; then
+            cat "$package_login_error" >&2
+            fail_reason packages_write_denied
+        fi
+        echo 'package_publish_capability=verified method=ghcr-login token=builtin'
+        return 0
+    fi
     package_error="$(mktemp)"
     if ! package_headers="$(gh api user --include 2>"$package_error")"; then
         cat "$package_error" >&2

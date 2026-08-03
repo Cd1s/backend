@@ -317,7 +317,7 @@ test_workflow_contract_and_order() {
     file_contains "$WORKFLOW" 'token: ${{ secrets.GITHUB_TOKEN }}' || return 1
     ! file_contains "$WORKFLOW" 'token: ${{ secrets.WORKFLOW_TOKEN }}' || return 1
     file_contains "$WORKFLOW" 'GH_TOKEN: ${{ github.token }}' || return 1
-    file_contains "$WORKFLOW" 'GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}' || return 1
+    file_contains "$WORKFLOW" 'GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN || secrets.GITHUB_TOKEN }}' || return 1
     file_contains "$WORKFLOW" 'GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}' || return 1
     file_contains "$WORKFLOW" 'WORKFLOW_CHANGED: ${{ steps.sync.outputs.workflow_changed }}' || return 1
     file_contains "$WORKFLOW" 'push_token="$GITHUB_TOKEN"' || return 1
@@ -402,10 +402,19 @@ fi
 exit 2
 EOF
     chmod +x "$mock_bin/gh"
-    result="$(cd "$repo"; PATH="$mock_bin:$PATH" GIT_BIN="$mock_bin/git" REAL_GIT="$real_git" GH_CALL_LOG="$call_log" GITHUB_REPOSITORY=Cd1s/test GH_TOKEN=package-token PACKAGE_PUBLISH_REQUIRED=true bash "$LIB" preflight 2>&1)" || return 1
+    result="$(cd "$repo"; PATH="$mock_bin:$PATH" GIT_BIN="$mock_bin/git" REAL_GIT="$real_git" GH_CALL_LOG="$call_log" GITHUB_REPOSITORY=Cd1s/test GH_TOKEN=package-token WORKFLOW_TOKEN=workflow-token PACKAGE_PUBLISH_REQUIRED=true bash "$LIB" preflight 2>&1)" || return 1
     contains "$result" 'package_publish_capability=verified' || return 1
     grep -Fq -- 'user --include' "$call_log" || return 1
-    result="$(cd "$repo"; PATH="$mock_bin:$PATH" GIT_BIN="$mock_bin/git" REAL_GIT="$real_git" GH_CALL_LOG="$call_log" GITHUB_REPOSITORY=Cd1s/test GH_TOKEN=package-token PACKAGE_SCOPE=missing PACKAGE_PUBLISH_REQUIRED=true bash "$LIB" preflight 2>&1)" && return 1
+    cat >"$mock_bin/docker" <<'EOF'
+#!/usr/bin/env bash
+set -eu
+[ "${1:-}" = login ] && [ "${2:-}" = ghcr.io ]
+cat >/dev/null
+EOF
+    chmod +x "$mock_bin/docker"
+    result="$(cd "$repo"; PATH="$mock_bin:$PATH" GIT_BIN="$mock_bin/git" REAL_GIT="$real_git" GH_CALL_LOG="$call_log" GITHUB_REPOSITORY=Cd1s/test GH_TOKEN=builtin-token PACKAGE_PUBLISH_REQUIRED=true bash "$LIB" preflight 2>&1)" || return 1
+    contains "$result" 'package_publish_capability=verified method=ghcr-login token=builtin' || return 1
+    result="$(cd "$repo"; PATH="$mock_bin:$PATH" GIT_BIN="$mock_bin/git" REAL_GIT="$real_git" GH_CALL_LOG="$call_log" GITHUB_REPOSITORY=Cd1s/test GH_TOKEN=package-token WORKFLOW_TOKEN=workflow-token PACKAGE_SCOPE=missing PACKAGE_PUBLISH_REQUIRED=true bash "$LIB" preflight 2>&1)" && return 1
     contains "$result" 'reason=packages_write_denied'
 }
 
