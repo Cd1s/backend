@@ -96,13 +96,19 @@ EOF
 
 run_sync() {
     local behavior=$1
+    run_sync_commit "$behavior" "$new_sha"
+}
+
+run_sync_commit() {
+    local behavior=$1
+    local commit=$2
     (
         cd "$repo"
         PATH="$mock_bin:$PATH" \
         GH_BEHAVIOR="$behavior" \
         GH_CALL_LOG="$call_log" \
         FORK_REPO=Cd1s/remnawave-test \
-        FORK_COMMIT="$new_sha" \
+        FORK_COMMIT="$commit" \
         UPSTREAM_REPO=remnawave/backend \
         UPSTREAM_RELEASE_TAG=3.0.0 \
         UPSTREAM_RELEASE_URL=https://github.com/remnawave/backend/releases/tag/3.0.0 \
@@ -140,6 +146,25 @@ test_new_release_is_created() {
     output="$(run_sync missing 2>&1)" || return 1
     assert_contains "$output" 'release_sync=created' || return 1
     grep -Fq 'release create' "$call_log"
+}
+
+test_superseded_sync_is_skipped_without_release_side_effects() {
+    make_repo
+    output="$(run_sync_commit missing "$old_sha" 2>&1)" || return 1
+    assert_contains "$output" 'release_sync=skipped reason=superseded_by_newer_sync' || return 1
+    [ ! -s "$call_log" ]
+}
+
+test_diverged_branch_fails_closed() {
+    make_repo
+    git -C "$repo" checkout -q -b divergent "$old_sha"
+    printf 'diverged\n' >>"$repo/state"
+    git -C "$repo" add state
+    git -C "$repo" commit -q -m divergent
+    divergent_sha="$(git -C "$repo" rev-parse HEAD)"
+    git -C "$repo" push -q --force origin HEAD:singbox
+    output="$(run_sync_commit missing "$new_sha" 2>&1)" && return 1
+    assert_contains "$output" "release_sync=failed reason=remote_branch_not_at_final_commit expected=${new_sha} actual=${divergent_sha}"
 }
 
 test_different_tag_without_release_fails() {
@@ -232,6 +257,8 @@ run_case() {
 run_case test_resolve_tag_and_version
 run_case test_historical_release_is_idempotent
 run_case test_new_release_is_created
+run_case test_superseded_sync_is_skipped_without_release_side_effects
+run_case test_diverged_branch_fails_closed
 run_case test_different_tag_without_release_fails
 run_case test_release_without_tag_fails
 run_case test_query_error_fails
