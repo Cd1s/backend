@@ -197,6 +197,8 @@ test_workflow_contract_and_order() {
     file_contains "$WORKFLOW" 'upstream-sync-lib.sh preflight' || return 1
     file_contains "$WORKFLOW" 'upstream-sync-lib.sh package' || return 1
     file_contains "$WORKFLOW" 'refs/tags/${{ steps.release.outputs.tag }}:refs/tags/upstream-release-${{ steps.release.outputs.tag }}' || return 1
+    file_contains "$WORKFLOW" 'git fetch --no-tags upstream main' || return 1
+    file_contains "$WORKFLOW" 'git fetch --no-tags upstream "refs/tags/${{ steps.release.outputs.tag }}:refs/tags/upstream-release-${{ steps.release.outputs.tag }}"' || return 1
     file_contains "$WORKFLOW" 'actions/upload-artifact@v4' || return 1
     file_contains "$WORKFLOW" 'git push origin HEAD:singbox' || return 1
     preflight_line="$(grep -n -m1 'upstream-sync-lib.sh preflight' "$WORKFLOW" | cut -d: -f1)" || return 1
