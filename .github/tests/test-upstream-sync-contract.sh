@@ -195,12 +195,14 @@ test_workflow_can_push_workflow_files() {
     assert_file_contains "$WORKFLOW" 'contents: write' || return 1
     assert_file_contains "$WORKFLOW" 'WORKFLOW_TOKEN' || return 1
     assert_file_contains "$WORKFLOW" 'GH_TOKEN: ${{ github.token }}' || return 1
-    assert_file_contains "$WORKFLOW" 'GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}' || return 1
+    assert_file_contains "$WORKFLOW" 'GITHUB_TOKEN: ${{ github.token }}' || return 1
     ! assert_file_contains "$WORKFLOW" 'PACKAGE_TOKEN' || return 1
     assert_file_contains "$WORKFLOW" 'WORKFLOW_CHANGED: ${{ steps.sync.outputs.workflow_changed }}' || return 1
     assert_file_contains "$WORKFLOW" 'push_token="$GITHUB_TOKEN"' || return 1
     assert_file_contains "$WORKFLOW" 'push_token="$WORKFLOW_TOKEN"' || return 1
-    assert_file_contains "$WORKFLOW" 'GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN || secrets.GITHUB_TOKEN }}' || return 1
+    ! assert_file_contains "$WORKFLOW" 'GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN || secrets.GITHUB_TOKEN }}' || return 1
+    assert_file_contains "$WORKFLOW" 'password: ${{ github.token }}' || return 1
+    assert_file_contains "$ROOT/.github/scripts/upstream-sync-lib.sh" 'workflow_token_query_error' || return 1
     assert_file_contains "$WORKFLOW" 'GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth_header"' || return 1
     ! assert_file_contains "$WORKFLOW" 'Configure ephemeral GitHub auth for push' || return 1
     if grep -Eq '^[[:space:]]+workflows:[[:space:]]+write[[:space:]]*$' "$WORKFLOW"; then
@@ -230,8 +232,10 @@ test_workflow_contract() {
     assert_file_contains "$WORKFLOW" 'upstream-sync-lib.sh package' || return 1
     assert_file_contains "$WORKFLOW" 'upstream-sync-lib.sh preflight' || return 1
     assert_file_contains "$WORKFLOW" 'GH_TOKEN: ${{ github.token }}' || return 1
-    assert_file_contains "$WORKFLOW" 'GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}' || return 1
-    assert_file_contains "$WORKFLOW" 'GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN || secrets.GITHUB_TOKEN }}' || return 1
+    assert_file_contains "$WORKFLOW" 'GITHUB_TOKEN: ${{ github.token }}' || return 1
+    ! assert_file_contains "$WORKFLOW" 'GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN || secrets.GITHUB_TOKEN }}' || return 1
+    assert_file_contains "$WORKFLOW" 'password: ${{ github.token }}' || return 1
+    assert_file_contains "$WORKFLOW" 'workflow_token_query_error' || return 1
     ! assert_file_contains "$WORKFLOW" 'PACKAGE_TOKEN' || return 1
     ! assert_file_contains "$WORKFLOW" 'actions/workflows' || return 1
     ! assert_file_contains "$WORKFLOW" 'permissions.push' || return 1

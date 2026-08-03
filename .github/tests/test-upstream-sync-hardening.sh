@@ -317,8 +317,10 @@ test_workflow_contract_and_order() {
     file_contains "$WORKFLOW" 'token: ${{ secrets.GITHUB_TOKEN }}' || return 1
     ! file_contains "$WORKFLOW" 'token: ${{ secrets.WORKFLOW_TOKEN }}' || return 1
     file_contains "$WORKFLOW" 'GH_TOKEN: ${{ github.token }}' || return 1
-    file_contains "$WORKFLOW" 'GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN || secrets.GITHUB_TOKEN }}' || return 1
-    file_contains "$WORKFLOW" 'GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}' || return 1
+    ! file_contains "$WORKFLOW" 'GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN || secrets.GITHUB_TOKEN }}' || return 1
+    file_contains "$WORKFLOW" 'GITHUB_TOKEN: ${{ github.token }}' || return 1
+    file_contains "$WORKFLOW" 'password: ${{ github.token }}' || return 1
+    file_contains "$WORKFLOW" 'workflow_token_query_error' || return 1
     file_contains "$WORKFLOW" 'WORKFLOW_CHANGED: ${{ steps.sync.outputs.workflow_changed }}' || return 1
     file_contains "$WORKFLOW" 'push_token="$GITHUB_TOKEN"' || return 1
     file_contains "$WORKFLOW" 'push_token="$WORKFLOW_TOKEN"' || return 1
@@ -338,7 +340,7 @@ test_workflow_contract_and_order() {
 }
 
 test_push_auth_never_duplicates_checkout_extraheader() {
-    file_contains "$WORKFLOW" 'GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}' || return 1
+    file_contains "$WORKFLOW" 'GITHUB_TOKEN: ${{ github.token }}' || return 1
     file_contains "$WORKFLOW" 'WORKFLOW_CHANGED: ${{ steps.sync.outputs.workflow_changed }}' || return 1
     file_contains "$WORKFLOW" 'push_token="$GITHUB_TOKEN"' || return 1
     file_contains "$WORKFLOW" 'push_token="$WORKFLOW_TOKEN"' || return 1
@@ -376,7 +378,21 @@ test_workflow_diff_without_token_fails_closed() {
     contains "$result" 'reason=missing_WORKFLOW_TOKEN workflow_files_changed'
 }
 
-test_package_publish_capability_uses_scope_probe() {
+test_workflow_diff_with_invalid_token_fails_closed() {
+    make_repo
+    cat >"$mock_bin/gh" <<'EOF'
+#!/usr/bin/env bash
+set -eu
+[ "${1:-}" = api ] || exit 2
+[ "${2:-}" = user ] && exit 1
+printf '{"id":123}\n'
+EOF
+    chmod +x "$mock_bin/gh"
+    result="$(cd "$repo"; PATH="$mock_bin:$PATH" GITHUB_REPOSITORY=Cd1s/test GH_TOKEN=github-token WORKFLOW_CHANGED=true WORKFLOW_TOKEN=bad-token bash "$LIB" preflight 2>&1)" && return 1
+    contains "$result" 'reason=workflow_token_query_error'
+}
+
+test_package_publish_capability_uses_builtin_token() {
     make_repo
     call_log="$fixture_root/gh.log"
     cat >"$mock_bin/gh" <<'EOF'
@@ -402,9 +418,6 @@ fi
 exit 2
 EOF
     chmod +x "$mock_bin/gh"
-    result="$(cd "$repo"; PATH="$mock_bin:$PATH" GIT_BIN="$mock_bin/git" REAL_GIT="$real_git" GH_CALL_LOG="$call_log" GITHUB_REPOSITORY=Cd1s/test GH_TOKEN=package-token WORKFLOW_TOKEN=workflow-token PACKAGE_PUBLISH_REQUIRED=true bash "$LIB" preflight 2>&1)" || return 1
-    contains "$result" 'package_publish_capability=verified' || return 1
-    grep -Fq -- 'user --include' "$call_log" || return 1
     cat >"$mock_bin/docker" <<'EOF'
 #!/usr/bin/env bash
 set -eu
@@ -412,10 +425,9 @@ set -eu
 cat >/dev/null
 EOF
     chmod +x "$mock_bin/docker"
-    result="$(cd "$repo"; PATH="$mock_bin:$PATH" GIT_BIN="$mock_bin/git" REAL_GIT="$real_git" GH_CALL_LOG="$call_log" GITHUB_REPOSITORY=Cd1s/test GH_TOKEN=builtin-token PACKAGE_PUBLISH_REQUIRED=true bash "$LIB" preflight 2>&1)" || return 1
+    result="$(cd "$repo"; PATH="$mock_bin:$PATH" GIT_BIN="$mock_bin/git" REAL_GIT="$real_git" GH_CALL_LOG="$call_log" GITHUB_REPOSITORY=Cd1s/test GH_TOKEN=builtin-token WORKFLOW_TOKEN=bad-token PACKAGE_PUBLISH_REQUIRED=true bash "$LIB" preflight 2>&1)" || return 1
     contains "$result" 'package_publish_capability=verified method=ghcr-login token=builtin' || return 1
-    result="$(cd "$repo"; PATH="$mock_bin:$PATH" GIT_BIN="$mock_bin/git" REAL_GIT="$real_git" GH_CALL_LOG="$call_log" GITHUB_REPOSITORY=Cd1s/test GH_TOKEN=package-token WORKFLOW_TOKEN=workflow-token PACKAGE_SCOPE=missing PACKAGE_PUBLISH_REQUIRED=true bash "$LIB" preflight 2>&1)" && return 1
-    contains "$result" 'reason=packages_write_denied'
+    ! grep -Fq -- 'user --include' "$call_log"
 }
 
 run_case() { if "$1"; then pass "$1"; else fail "$1"; fi; }
@@ -430,7 +442,8 @@ run_case test_config_profile_conflict_resolution_preserves_dual_core_paths
 run_case test_package_contract_uses_release_commit_and_monorepo_paths
 run_case test_capability_preflight_rejects_forbidden_probes
 run_case test_workflow_diff_without_token_fails_closed
-run_case test_package_publish_capability_uses_scope_probe
+run_case test_workflow_diff_with_invalid_token_fails_closed
+run_case test_package_publish_capability_uses_builtin_token
 run_case test_workflow_contract_and_order
 run_case test_push_auth_never_duplicates_checkout_extraheader
 

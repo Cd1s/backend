@@ -4,6 +4,14 @@ set -euo pipefail
 git_bin="${GIT_BIN:-git}"
 git_cmd() { "$git_bin" "$@"; }
 
+gh_with_sync_token() {
+    if [ "${WORKFLOW_CHANGED:-false}" = true ]; then
+        GH_TOKEN="${WORKFLOW_TOKEN:?WORKFLOW_TOKEN is required for workflow changes}" gh "$@"
+    else
+        gh "$@"
+    fi
+}
+
 fail_reason() {
     if [ -n "${UPSTREAM_SYNC_REPORT_PATH:-}" ]; then
         mkdir -p "$(dirname "$UPSTREAM_SYNC_REPORT_PATH")"
@@ -147,26 +155,18 @@ package_contract() {
 
 verify_package_publish_capability() {
     [ "${PACKAGE_PUBLISH_REQUIRED:-false}" = true ] || return 0
-    if [ -z "${WORKFLOW_TOKEN:-}" ]; then
-        package_login_error="$(mktemp)"
-        if ! command -v docker >/dev/null 2>&1 || ! printf '%s' "${GH_TOKEN:-}" | docker login ghcr.io --username github-actions[bot] --password-stdin >"$package_login_error" 2>&1; then
-            cat "$package_login_error" >&2
-            fail_reason packages_write_denied
-        fi
-        echo 'package_publish_capability=verified method=ghcr-login token=builtin'
-        return 0
+    package_token="${GH_TOKEN:-}"
+    package_token_source=builtin
+    if [ "${WORKFLOW_CHANGED:-false}" = true ]; then
+        package_token="${WORKFLOW_TOKEN:-}"
+        package_token_source=workflow
     fi
-    package_error="$(mktemp)"
-    if ! package_headers="$(gh api user --include 2>"$package_error")"; then
-        cat "$package_error" >&2
-        fail_reason packages_write_query_error
+    package_login_error="$(mktemp)"
+    if ! command -v docker >/dev/null 2>&1 || ! printf '%s' "$package_token" | docker login ghcr.io --username github-actions[bot] --password-stdin >"$package_login_error" 2>&1; then
+        cat "$package_login_error" >&2
+        fail_reason packages_write_denied
     fi
-    package_scopes="$(awk 'tolower($0) ~ /^x-oauth-scopes:/ { sub(/^[^:]*:[[:space:]]*/, ""); print; exit }' <<<"$package_headers" | tr -d '[:space:]')"
-    case ",$package_scopes," in
-        *,write:packages,*) ;;
-        *) fail_reason packages_write_denied ;;
-    esac
-    echo 'package_publish_capability=verified scope=write:packages'
+    echo "package_publish_capability=verified method=ghcr-login token=$package_token_source"
 }
 
 capability_preflight() {
@@ -174,12 +174,20 @@ capability_preflight() {
     if [ "${WORKFLOW_CHANGED:-false}" = true ] && [ -z "${WORKFLOW_TOKEN:-}" ]; then
         fail_reason missing_WORKFLOW_TOKEN workflow_files_changed
     fi
+    if [ "${WORKFLOW_CHANGED:-false}" = true ]; then
+        workflow_token_error="$(mktemp)"
+        if ! workflow_actor="$(GH_TOKEN="$WORKFLOW_TOKEN" gh api user --jq .login 2>"$workflow_token_error")" || [ -z "$workflow_actor" ]; then
+            cat "$workflow_token_error" >&2
+            fail_reason workflow_token_query_error
+        fi
+        echo "workflow_token=verified actor=$workflow_actor"
+    fi
     repo_json_error="$(mktemp)"
-    if ! repo_id="$(gh api "repos/${GITHUB_REPOSITORY}" --jq .id 2>"$repo_json_error")" || [ -z "$repo_id" ]; then
+    if ! repo_id="$(gh_with_sync_token api "repos/${GITHUB_REPOSITORY}" --jq .id 2>"$repo_json_error")" || [ -z "$repo_id" ]; then
         cat "$repo_json_error" >&2
         fail_reason repository_query_error
     fi
-    if ! gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=1" >/dev/null 2>&1; then
+    if ! gh_with_sync_token api "repos/${GITHUB_REPOSITORY}/releases?per_page=1" >/dev/null 2>&1; then
         fail_reason release_query_error
     fi
     verify_package_publish_capability
