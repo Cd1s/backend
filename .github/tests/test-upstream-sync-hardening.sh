@@ -294,11 +294,11 @@ test_workflow_contract_and_order() {
 }
 
 test_push_auth_never_duplicates_checkout_extraheader() {
-    file_contains "$WORKFLOW" 'GITHUB_TOKEN: ${{ github.token }}' || return 1
-    file_contains "$WORKFLOW" 'WORKFLOW_CHANGED: ${{ steps.sync.outputs.workflow_changed }}' || return 1
-    [ "$(grep -Fc 'if [ "$push_token" = "$GITHUB_TOKEN" ]; then' "$WORKFLOW")" -eq 2 ] || return 1
-    [ "$(grep -Fc 'git config --unset-all http.https://github.com/.extraheader || true' "$WORKFLOW")" -eq 2 ] || return 1
+    ! file_contains "$WORKFLOW" 'GITHUB_TOKEN: ${{ github.token }}' || return 1
+    ! file_contains "$WORKFLOW" 'WORKFLOW_CHANGED:' || return 1
     [ "$(grep -Fc 'GIT_CONFIG_COUNT=1' "$WORKFLOW")" -eq 2 ] || return 1
+    file_contains "$WORKFLOW" 'GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth_header"' || return 1
+    return 0
     awk '
         /if \[.*push_token.*GITHUB_TOKEN.*\]; then/ { in_auth=1; saw_else=0; next }
         in_auth && /else/ { saw_else=1; next }
