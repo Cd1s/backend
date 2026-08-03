@@ -281,10 +281,10 @@ test_workflow_contract_and_order() {
     file_contains "$WORKFLOW" 'Install official Mihomo validator' || return 1
     file_contains "$WORKFLOW" 'token: ${{ github.token }}' || return 1
     file_contains "$WORKFLOW" 'GH_TOKEN: ${{ github.token }}' || return 1
-    ! file_contains "$WORKFLOW" 'GITHUB_TOKEN: ${{ github.token }}' || return 1
-    ! file_contains "$WORKFLOW" 'WORKFLOW_CHANGED:' || return 1
-    ! file_contains "$WORKFLOW" 'push_token=' || return 1
-    file_contains "$WORKFLOW" 'PACKAGE_TOKEN: ${{ github.token }}' || return 1
+    file_contains "$WORKFLOW" 'GITHUB_TOKEN: ${{ github.token }}' || return 1
+    file_contains "$WORKFLOW" 'WORKFLOW_CHANGED:' || return 1
+    [ "$(grep -Fc 'if [ "$push_token" = "$GITHUB_TOKEN" ]; then' "$WORKFLOW")" -eq 0 ] || return 1
+    ! file_contains "$WORKFLOW" 'PACKAGE_TOKEN:' || return 1
     ! file_contains "$WORKFLOW" 'user/packages' || return 1
     ! file_contains "$WORKFLOW" 'actions/workflows' || return 1
     ! file_contains "$WORKFLOW" 'permissions.push' || return 1
@@ -300,9 +300,9 @@ test_workflow_contract_and_order() {
 }
 
 test_push_auth_never_duplicates_checkout_extraheader() {
-    ! file_contains "$WORKFLOW" 'GITHUB_TOKEN: ${{ github.token }}' || return 1
-    ! file_contains "$WORKFLOW" 'WORKFLOW_CHANGED:' || return 1
-    ! file_contains "$WORKFLOW" 'push_token=' || return 1
+    file_contains "$WORKFLOW" 'GITHUB_TOKEN: ${{ github.token }}' || return 1
+    file_contains "$WORKFLOW" 'WORKFLOW_CHANGED:' || return 1
+    [ "$(grep -Fc 'if [ "$push_token" = "$GITHUB_TOKEN" ]; then' "$WORKFLOW")" -eq 0 ] || return 1
     [ "$(grep -Fc 'GIT_CONFIG_COUNT=1' "$WORKFLOW")" -eq 2 ] || return 1
     file_contains "$WORKFLOW" 'GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth_header"' || return 1
     awk '
@@ -315,7 +315,7 @@ test_push_auth_never_duplicates_checkout_extraheader() {
     ' "$WORKFLOW"
 }
 
-test_capability_preflight_requires_workflow_token_before_probes() {
+test_capability_preflight_accepts_token_without_permissions_and_skips_forbidden_probes() {
     make_repo
     call_log="$fixture_root/gh.log"
     cat >"$mock_bin/gh" <<'EOF'
@@ -324,22 +324,26 @@ set -eu
 printf '%s\n' "$*" >>"$GH_CALL_LOG"
 if [ "${1:-}" = api ]; then
     case "${2:-}" in
-        *) exit 97 ;;
+        repos/Cd1s/test) [ "${3:-}" = --jq ] && printf '123\n' || printf '{"id":123}\n' ;;
+        "repos/Cd1s/test/releases?per_page=1") printf '[]\n' ;;
+        "user/packages?package_type=container&per_page=1"|"repos/Cd1s/test/actions/workflows") exit 97 ;;
+        *) exit 2 ;;
     esac
     exit 0
 fi
 exit 2
 EOF
     chmod +x "$mock_bin/gh"
-    result="$(cd "$repo"; PATH="$mock_bin:$PATH" GIT_BIN="$mock_bin/git" REAL_GIT="$real_git" GH_CALL_LOG="$call_log" GITHUB_REPOSITORY=Cd1s/test GH_TOKEN=github-token WORKFLOW_CHANGED=false WORKFLOW_TOKEN= bash "$LIB" preflight 2>&1)" && return 1
-    contains "$result" 'reason=missing_WORKFLOW_TOKEN requires_contents_workflows_packages_release_write' || return 1
-    [ ! -s "$call_log" ]
+    result="$(cd "$repo"; PATH="$mock_bin:$PATH" GIT_BIN="$mock_bin/git" REAL_GIT="$real_git" GH_CALL_LOG="$call_log" GITHUB_REPOSITORY=Cd1s/test GH_TOKEN=github-token WORKFLOW_CHANGED=false WORKFLOW_TOKEN= bash "$LIB" preflight 2>&1)" || return 1
+    contains "$result" 'capability_preflight=passed' || return 1
+    ! grep -Fq 'user/packages' "$call_log" || return 1
+    ! grep -Fq 'actions/workflows' "$call_log"
 }
 
 test_workflow_diff_without_token_fails_closed() {
     make_repo
     result="$(cd "$repo"; PATH="$mock_bin:$PATH" GITHUB_REPOSITORY=Cd1s/test WORKFLOW_CHANGED=true WORKFLOW_TOKEN= bash "$LIB" preflight 2>&1)" && return 1
-    contains "$result" 'reason=missing_WORKFLOW_TOKEN requires_contents_workflows_packages_release_write'
+    contains "$result" 'reason=missing_WORKFLOW_TOKEN workflow_files_changed'
 }
 
 run_case() { if "$1"; then pass "$1"; else fail "$1"; fi; }
@@ -351,7 +355,7 @@ run_case test_conflict_reports_and_aborts_without_push
 run_case test_merge_abort_failure_is_not_hidden
 run_case test_config_profile_conflict_resolution_preserves_dual_core_paths
 run_case test_package_contract_uses_release_commit_and_monorepo_paths
-run_case test_capability_preflight_requires_workflow_token_before_probes
+run_case test_capability_preflight_accepts_token_without_permissions_and_skips_forbidden_probes
 run_case test_workflow_diff_without_token_fails_closed
 run_case test_workflow_contract_and_order
 run_case test_push_auth_never_duplicates_checkout_extraheader
