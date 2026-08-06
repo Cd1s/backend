@@ -1,10 +1,9 @@
 name: Sync upstream
 
+# Scheduled dispatch is intentionally external: /root/.hermes/scripts/remnawave_release_dispatch.py
+# calls this workflow only after the official stable Release tag differs from this fork's Release.
+# That prevents no-op GitHub Actions runs and their failure/cancellation notifications.
 on:
-  schedule:
-    # GitHub's minimum supported schedule interval is five minutes. This is near-real-time,
-    # not a guarantee of immediate delivery when GitHub is under load.
-    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 permissions:

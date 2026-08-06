@@ -220,7 +220,8 @@ test_anytls_client_compatibility_contract() {
 }
 
 test_workflow_contract() {
-    assert_file_contains "$WORKFLOW" 'schedule:' || return 1
+    ! grep -Fq -- 'schedule:' "$WORKFLOW" || return 1
+    ! grep -Fq -- '*/5 * * * *' "$WORKFLOW" || return 1
     assert_file_contains "$WORKFLOW" 'workflow_dispatch:' || return 1
     assert_file_contains "$WORKFLOW" 'UPSTREAM_SYNC_REPORT_PATH' || return 1
     assert_file_contains "$WORKFLOW" 'actions/upload-artifact@v4' || return 1
@@ -242,7 +243,7 @@ test_workflow_contract() {
     assert_file_contains "$WORKFLOW" 'WORKFLOW_CHANGED: ${{ steps.sync.outputs.workflow_changed }}' || return 1
     assert_file_contains "$WORKFLOW" 'push_token="$GITHUB_TOKEN"' || return 1
     assert_file_contains "$WORKFLOW" 'push_token="$WORKFLOW_TOKEN"' || return 1
-    assert_file_contains "$WORKFLOW" '*/5 * * * *' || return 1
+    ! grep -Fq -- '*/5 * * * *' "$WORKFLOW" || return 1
     if grep -Eq '(__RW_METADATA_VERSION|RWNODE_VERSION)=[0-9]' "$WORKFLOW"; then
         return 1
     fi
