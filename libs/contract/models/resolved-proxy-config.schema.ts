@@ -104,6 +104,7 @@ export const TlsSecurityOptionsSchema = z.object({
     echConfigList: z.string().nullable(),
     echForceQuery: z.string().nullable(),
     echSockopt: z.nullable(z.unknown()),
+    cipherSuites: z.string().nullable(),
 });
 
 export const RealitySecurityOptionsSchema = z.object({

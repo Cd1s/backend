@@ -172,6 +172,10 @@ function buildTlsSettings(host: ResolvedProxyConfig): Record<string, unknown> {
         settings.echSockopt = host.securityOptions.echSockopt;
     }
 
+    if (host.securityOptions.cipherSuites) {
+        settings.cipherSuites = host.securityOptions.cipherSuites;
+    }
+
     return settings;
 }
 
