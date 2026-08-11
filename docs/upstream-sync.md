@@ -1,7 +1,9 @@
 # Upstream synchronization behavior
 
 `.github/workflows/upstream-sync.yml` fetches the official
-`https://github.com/remnawave/backend.git` `main` branch into a temporary runner checkout.
+`https://github.com/remnawave/backend.git` `main` branch and the exact commit peeled from the
+latest stable Release tag into a temporary runner checkout. The latter fetch is required because a
+valid Release commit is not guaranteed to be reachable from `main` when the job runs.
 
 The workflow uses Git commit ancestry and `git merge-tree` for update detection. It does not use
 the package version as the update signal: an upstream behavior change can keep the same semantic

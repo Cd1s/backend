@@ -771,6 +771,7 @@ export class ResolveProxyConfigService {
                 echConfigList: null,
                 echForceQuery: null,
                 echSockopt: null,
+                cipherSuites: null,
                 pinnedPeerCertSha256: inputHost.pinnedPeerCertSha256,
                 verifyPeerCertByName: inputHost.verifyPeerCertByName,
             },

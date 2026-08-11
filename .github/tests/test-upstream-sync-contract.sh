@@ -232,6 +232,8 @@ test_workflow_contract() {
     assert_file_contains "$WORKFLOW" 'if: steps.sync.outcome == '\''success'\''' || return 1
     assert_file_contains "$WORKFLOW" 'upstream-sync-lib.sh package' || return 1
     assert_file_contains "$WORKFLOW" 'upstream-sync-lib.sh preflight' || return 1
+    assert_file_contains "$WORKFLOW" 'git fetch --no-tags upstream main' || return 1
+    assert_file_contains "$WORKFLOW" 'git fetch --no-tags upstream "$UPSTREAM_REF"' || return 1
     assert_file_contains "$WORKFLOW" 'GH_TOKEN: ${{ github.token }}' || return 1
     assert_file_contains "$WORKFLOW" 'GITHUB_TOKEN: ${{ github.token }}' || return 1
     ! assert_file_contains "$WORKFLOW" 'GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN || secrets.GITHUB_TOKEN }}' || return 1
