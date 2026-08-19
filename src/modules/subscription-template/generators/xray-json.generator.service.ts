@@ -6,6 +6,7 @@ import type {
     TRemnawaveInjectorSelector,
 } from '@libs/contracts/models';
 
+import { applyHostMapper } from '../host-mapper';
 import { ResolvedProxyConfig } from '../resolve-proxy/interfaces';
 import { SubscriptionTemplateService } from '../subscription-template.service';
 import {
@@ -302,7 +303,7 @@ export class XrayJsonGeneratorService {
             }
         }
 
-        return outbound;
+        return applyHostMapper(outbound, host.clientOverrides.mapper.xrayJson, host);
     }
 
     private buildTransportEntry(host: ResolvedProxyConfig): object {

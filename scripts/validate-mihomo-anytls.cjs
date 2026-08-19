@@ -61,6 +61,7 @@ function createFixture(security = 'tls') {
             mihomoIpVersion: null,
             serverDescription: null,
             xrayJsonTemplate: null,
+            mapper: {},
         },
         metadata: {
             uuid: '00000000-0000-0000-0000-000000000001',

@@ -1,8 +1,10 @@
-FROM node:24.18-trixie-slim AS frontend
+FROM node:24.19-trixie-slim AS frontend
 WORKDIR /opt/frontend
 
 ARG FRONTEND_REPO=https://github.com/Cd1s/remnawave-frontend.git
 ARG FRONTEND_REF=singbox
+ARG SINGBOX_SCHEMA_URL=https://github.com/BlackDuty/sing-box-schema/releases/download/v1.13.13/schema.json
+ARG MIHOMO_SCHEMA_URL=https://github.com/dongchengjie/meta-json-schema/releases/download/v1.19.29/meta-json-schema.json
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl git \
@@ -18,6 +20,8 @@ RUN npm ci --prefer-offline --no-audit --no-fund \
     && curl -L https://validator.remna.dev/wasm_exec.js -o dist/assets/wasm_exec.js \
     && curl -L https://validator.remna.dev/xray.schema.json -o dist/assets/xray.schema.json \
     && curl -L https://validator.remna.dev/xray.schema.cn.json -o dist/assets/xray.schema.cn.json \
+    && curl -L ${SINGBOX_SCHEMA_URL} -o dist/assets/singbox.schema.json \
+    && curl -L ${MIHOMO_SCHEMA_URL} -o dist/assets/mihomo.schema.json \
     && curl -L https://validator.remna.dev/main.wasm -o dist/assets/main.wasm
 
 FROM node:24.19-trixie-slim AS backend-build

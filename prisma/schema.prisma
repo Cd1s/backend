@@ -183,19 +183,21 @@ model Nodes {
   consumptionMultiplier     BigInt @default(1000000000) @map("consumption_multiplier")
   nodeConsumptionMultiplier BigInt @default(1000000000) @map("node_consumption_multiplier")
 
-  isTrafficTrackingActive Boolean  @default(false) @map("is_traffic_tracking_active")
-  trafficResetDay         Int?     @default(1) @map("traffic_reset_day")
-  trafficLimitBytes       BigInt?  @default(0) @map("traffic_limit_bytes")
-  trafficUsedBytes        BigInt?  @default(0) @map("traffic_used_bytes")
-  notifyPercent           Int?     @default(0) @map("notify_percent")
+  isTrafficTrackingActive Boolean @default(false) @map("is_traffic_tracking_active")
+  trafficResetDay         Int?    @default(1) @map("traffic_reset_day")
+  trafficLimitBytes       BigInt? @default(0) @map("traffic_limit_bytes")
+  trafficUsedBytes        BigInt? @default(0) @map("traffic_used_bytes")
+  notifyPercent           Int?    @default(0) @map("notify_percent")
   /// [NodeIps]
-  ips                     Json     @default("[]") @map("ips")
+  ips                     Json    @default("[]") @map("ips")
 
   providerUuid String? @map("provider_uuid") @db.Uuid
 
   viewPosition Int      @default(autoincrement()) @map("view_position")
   countryCode  String   @default("XX") @map("country_code")
   tags         String[] @default([]) @map("tags")
+
+  integrationUuids String[] @default([]) @map("integration_uuids") @db.Uuid
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
@@ -215,6 +217,18 @@ model Nodes {
 
   @@index([id])
   @@map("nodes")
+}
+
+model Integrations {
+  uuid        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String  @unique @map("name") @db.VarChar(30)
+  description String? @map("description") @db.VarChar(255)
+  config      Json    @map("config")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("integrations")
 }
 
 model NodesUserUsageHistory {
@@ -277,6 +291,7 @@ model Hosts {
   xrayJsonTemplateUuid         String?  @map("xray_json_template_uuid") @db.Uuid
   keepSniBlank                 Boolean  @default(false) @map("keep_sni_blank")
   excludeFromSubscriptionTypes String[] @default([]) @map("exclude_from_subscription_types")
+  mapper                       Json     @default("{}") @map("mapper")
 
   tags     String[] @default([]) @map("tags")
   isHidden Boolean  @default(false) @map("is_hidden")
@@ -583,6 +598,16 @@ model SubscriptionPageConfig {
   externalSquads ExternalSquads[]
 
   @@map("subscription_page_config")
+}
+
+model SharedLists {
+  name   String @id @map("name") @db.VarChar(255)
+  config Json   @map("config")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("shared_lists")
 }
 
 model NodePlugin {

@@ -1,3 +1,5 @@
+require('reflect-metadata');
+
 const fs = require('node:fs');
 const Module = require('node:module');
 const path = require('node:path');

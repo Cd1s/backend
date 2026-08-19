@@ -181,19 +181,19 @@ export const DEFAULT_TEMPLATE_SINGBOX = {
     dns: {
         servers: [
             {
-                tag: 'cf-dns',
                 type: 'tls',
+                tag: 'cf-dns',
                 server: '1.1.1.1',
             },
             {
-                tag: 'local',
                 type: 'tcp',
+                tag: 'local',
                 server: '1.1.1.1',
                 detour: 'direct',
             },
             {
-                tag: 'remote',
                 type: 'fakeip',
+                tag: 'remote',
                 inet4_range: '198.18.0.0/15',
                 inet6_range: 'fc00::/18',
             },
@@ -204,7 +204,7 @@ export const DEFAULT_TEMPLATE_SINGBOX = {
                 server: 'remote',
             },
         ],
-        strategy: 'ipv4_only',
+        independent_cache: true,
     },
     inbounds: [
         {
@@ -214,7 +214,6 @@ export const DEFAULT_TEMPLATE_SINGBOX = {
             tag: 'tun-in',
             auto_route: true,
             strict_route: true,
-            endpoint_independent_nat: true,
             stack: 'mixed',
             address: ['172.19.0.1/30', 'fdfe:dcba:9876::1/126'],
             platform: {
@@ -272,8 +271,11 @@ export const DEFAULT_TEMPLATE_SINGBOX = {
                 outbound: 'direct',
             },
         ],
+        default_domain_resolver: {
+            server: 'local',
+            strategy: 'ipv4_only',
+        },
         auto_detect_interface: true,
-        default_domain_resolver: 'local',
     },
     experimental: {
         clash_api: {

@@ -12,6 +12,8 @@ import { CACHE_KEYS, CACHE_KEYS_TTL, CONFIG_PROFILE_CORE_TYPE } from '@libs/cont
 import type { TConfigProfileCoreType } from '@libs/contracts/constants';
 
 import { ConfigProfileInboundEntity } from '@modules/config-profiles/entities';
+import { GetResolvedIntegrationsQuery } from '@modules/node-integrations/queries/get-resolved-integrations';
+import { mergeNodeIntegrations } from '@modules/node-integrations/utils';
 import { NodePluginEntity } from '@modules/node-plugins/entities';
 import { GetAllPluginsQuery } from '@modules/node-plugins/queries/get-all-plugins';
 import { NodesEntity } from '@modules/nodes';
@@ -155,6 +157,17 @@ export class StartAllNodesByProfileQueueProcessor extends WorkerHost {
                 pluginsResult.response.map((plugin) => [plugin.uuid, plugin]),
             );
 
+            const integrationsResult = await this.queryBus.execute(
+                new GetResolvedIntegrationsQuery([
+                    ...new Set(nodes.flatMap((node) => node.integrationUuids)),
+                ]),
+            );
+
+            if (!integrationsResult.isOk) {
+                this.logger.error(`Failed to resolve integrations: ${integrationsResult.message}`);
+                return;
+            }
+
             const startTime = Date.now();
 
             const config = await this.queryBus.execute(
@@ -176,6 +189,12 @@ export class StartAllNodesByProfileQueueProcessor extends WorkerHost {
                 if (!activeNodeInboundsTags) {
                     throw new Error('Failed to get active node inbounds tags');
                 }
+
+                const nodeIntegrations = mergeNodeIntegrations(
+                    node.integrationUuids
+                        .map((uuid) => integrationsResult.response.get(uuid))
+                        .filter((integration) => integration !== undefined),
+                );
 
                 let pluginsSupported = true;
                 const xrayStatusResponse = await this.axios.getNodeHealth({
@@ -304,6 +323,14 @@ export class StartAllNodesByProfileQueueProcessor extends WorkerHost {
                                 inbounds: filteredInboundsHashes,
                             },
                             forceRestart: payload.force ?? false,
+                            metadata: {
+                                uuid: node.uuid,
+                                name: node.name,
+                                countryCode: node.countryCode,
+                                id: Number(node.id),
+                                tags: node.tags,
+                            },
+                            integrations: nodeIntegrations,
                         },
                     },
                     {

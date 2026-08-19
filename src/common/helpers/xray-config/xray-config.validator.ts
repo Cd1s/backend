@@ -1,5 +1,4 @@
 import { hasher } from 'node-object-hash';
-import { readFileSync } from 'node:fs';
 import {
     BalancingRule,
     InboundConfig,
@@ -14,6 +13,7 @@ import {
 
 import { HashedSet } from '@remnawave/hashed-set';
 
+import { readPemLines } from '@common/utils/certs';
 import { getVlessFlow } from '@common/utils/flow/get-vless-flow';
 
 import { UserForConfigEntity } from '@modules/users/entities/users-for-config';
@@ -137,12 +137,12 @@ export class XRayConfig {
             const resolved = { ...cert };
 
             if (resolved.certificateFile) {
-                resolved.certificate = this.readPemLines(resolved.certificateFile);
+                resolved.certificate = readPemLines(resolved.certificateFile);
                 delete resolved.certificateFile;
             }
 
             if (resolved.keyFile) {
-                resolved.key = this.readPemLines(resolved.keyFile);
+                resolved.key = readPemLines(resolved.keyFile);
                 delete resolved.keyFile;
             }
 
@@ -150,13 +150,6 @@ export class XRayConfig {
         } catch {
             return cert;
         }
-    }
-
-    private readPemLines(filePath: string): string[] {
-        return readFileSync(filePath, 'utf-8')
-            .replace(/\r\n/g, '\n')
-            .split('\n')
-            .filter((line) => line);
     }
 
     private hasManagedClients(inbound: InboundConfig): inbound is {

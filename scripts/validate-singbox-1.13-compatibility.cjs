@@ -50,9 +50,12 @@ function assertAnyTlsOutbound(config) {
 
 function assertMigratedTemplate(config) {
     assert.equal(config.dns.fakeip, undefined);
-    assert.equal(config.dns.independent_cache, undefined);
+    assert.equal(config.dns.independent_cache, true);
     assert.ok(config.dns.servers.every((server) => server.type && !server.address));
-    assert.equal(config.route.default_domain_resolver, 'local');
+    assert.deepEqual(config.route.default_domain_resolver, {
+        server: 'local',
+        strategy: 'ipv4_only',
+    });
     assert.ok(config.route.rules.some((rule) => rule.action === 'sniff'));
     assert.ok(config.inbounds.every((inbound) => inbound.sniff === undefined));
     assert.deepEqual(config.inbounds[0].address, ['172.19.0.1/30', 'fdfe:dcba:9876::1/126']);
@@ -76,6 +79,14 @@ async function assertGeneratedAnyTlsOutbound() {
                 securityOptions: { serverName: 'example.com', fingerprint: null },
                 transport: 'tcp',
                 transportOptions: {},
+                clientOverrides: {
+                    shuffleHost: false,
+                    mihomoX25519: false,
+                    mihomoIpVersion: null,
+                    serverDescription: null,
+                    xrayJsonTemplate: null,
+                    mapper: {},
+                },
                 metadata: { excludeFromSubscriptionTypes: [] },
             },
         ]),

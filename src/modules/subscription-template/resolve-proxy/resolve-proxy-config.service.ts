@@ -74,6 +74,7 @@ export interface IResolveProxyConfigOptions {
     fallbackOptions?: {
         showHwidMaxDeviceRemarks?: boolean;
         showHwidNotSupportedRemarks?: boolean;
+        respondWithRemarks?: string[];
     };
     excludeHostsByTags?: ISRRContext['excludeHostsByTags'];
 }
@@ -175,6 +176,12 @@ export class ResolveProxyConfigService {
                 }
                 if (fallbackOptions.showHwidNotSupportedRemarks) {
                     return settings.customRemarks.HWIDNotSupported;
+                }
+                if (
+                    fallbackOptions.respondWithRemarks &&
+                    fallbackOptions.respondWithRemarks.length > 0
+                ) {
+                    return fallbackOptions.respondWithRemarks;
                 }
             }
 
@@ -658,6 +665,7 @@ export class ResolveProxyConfigService {
                     ? Buffer.from(inputHost.serverDescription).toString('base64')
                     : null,
                 xrayJsonTemplate: inputHost.xrayJsonTemplate,
+                mapper: inputHost.mapper,
             },
             metadata: {
                 uuid: inputHost.uuid,
@@ -858,12 +866,18 @@ export class ResolveProxyConfigService {
     }
 
     private parseResolvedProxyConfigFromRemark(remark: string): ResolvedProxyConfig | null {
-        if (!remark.startsWith('{')) {
+        if (!remark.startsWith('{"f')) {
             return null;
         }
 
         try {
-            return JSON.parse(remark) as ResolvedProxyConfig;
+            const parsed: unknown = JSON.parse(remark);
+
+            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+                return null;
+            }
+
+            return parsed as ResolvedProxyConfig;
         } catch {
             return null;
         }
@@ -899,6 +913,7 @@ export class ResolveProxyConfigService {
                         serverDescription: null,
                         xrayJsonTemplate: null,
                         mihomoIpVersion: null,
+                        mapper: {},
                     },
                     metadata: {
                         uuid: '00000000-0000-0000-0000-000000000000',

@@ -297,6 +297,7 @@ export class NodesService {
             if (!node.isDisabled) {
                 await this.nodesQueuesService.startNode({
                     nodeUuid: result.uuid,
+                    force: nodeData.integrationUuids !== undefined,
                 });
             }
 
@@ -558,6 +559,7 @@ export class NodesService {
                 providerUuid: fields.providerUuid,
                 tags: fields.tags,
                 activePluginUuid: fields.activePluginUuid,
+                integrationUuids: fields.integrationUuids,
                 note: fields.note,
             };
 
@@ -567,6 +569,18 @@ export class NodesService {
                 await this.nodesQueuesService.syncNodePluginsBulk(
                     uuids.map((uuid) => ({ nodeUuid: uuid })),
                 );
+            }
+
+            if (fieldsToUpdate.integrationUuids !== undefined) {
+                const profileUuids = await this.nodesRepository.getProfileUuidsByNodeUuids(uuids);
+
+                for (const profileUuid of profileUuids) {
+                    await this.nodesQueuesService.startAllNodesByProfile({
+                        profileUuid,
+                        emitter: 'bulkNodesUpdate',
+                        force: true,
+                    });
+                }
             }
 
             return ok(true);
