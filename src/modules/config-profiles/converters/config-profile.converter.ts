@@ -16,6 +16,7 @@ const entityToModel = (entity: ConfigProfileEntity): ConfigProfiles => {
         viewPosition: entity.viewPosition,
         name: entity.name,
         coreType: entity.coreType,
+        tags: entity.tags,
         config: entity.config,
         createdAt: entity.createdAt,
         updatedAt: entity.updatedAt,

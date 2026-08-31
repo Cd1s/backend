@@ -8,6 +8,7 @@ export const ConfigProfileSchema = z.object({
     viewPosition: z.int(),
     name: z.string(),
     coreType: z.enum([CONFIG_PROFILE_CORE_TYPE.XRAY, CONFIG_PROFILE_CORE_TYPE.SINGBOX]),
+    tags: z.array(z.string()),
     config: z.unknown(),
     inbounds: z.array(ConfigProfileInboundsSchema),
     nodes: z.array(

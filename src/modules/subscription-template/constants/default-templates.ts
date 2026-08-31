@@ -173,38 +173,37 @@ rules:
   - MATCH,→ Remnawave`;
 
 export const DEFAULT_TEMPLATE_SINGBOX = {
-    log: {
-        disabled: true,
-        level: 'debug',
-        timestamp: true,
-    },
     dns: {
+        rules: [
+            {
+                server: 'remote',
+                query_type: ['A', 'AAAA'],
+            },
+        ],
         servers: [
             {
-                type: 'tls',
                 tag: 'cf-dns',
+                type: 'tls',
                 server: '1.1.1.1',
             },
             {
-                type: 'tcp',
                 tag: 'local',
+                type: 'udp',
                 server: '1.1.1.1',
-                detour: 'direct',
             },
             {
-                type: 'fakeip',
                 tag: 'remote',
+                type: 'fakeip',
                 inet4_range: '198.18.0.0/15',
                 inet6_range: 'fc00::/18',
             },
         ],
-        rules: [
-            {
-                query_type: ['A', 'AAAA'],
-                server: 'remote',
-            },
-        ],
         independent_cache: true,
+    },
+    log: {
+        disabled: true,
+        level: 'debug',
+        timestamp: true,
     },
     inbounds: [
         {
@@ -248,6 +247,7 @@ export const DEFAULT_TEMPLATE_SINGBOX = {
             },
         },
     ],
+
     route: {
         rules: [
             {
@@ -256,19 +256,12 @@ export const DEFAULT_TEMPLATE_SINGBOX = {
             {
                 type: 'logical',
                 mode: 'or',
-                rules: [
-                    {
-                        protocol: 'dns',
-                    },
-                    {
-                        port: 53,
-                    },
-                ],
+                rules: [{ protocol: 'dns' }, { port: 53 }],
                 action: 'hijack-dns',
             },
             {
-                ip_is_private: true,
                 outbound: 'direct',
+                ip_is_private: true,
             },
         ],
         default_domain_resolver: {
@@ -279,15 +272,15 @@ export const DEFAULT_TEMPLATE_SINGBOX = {
     },
     experimental: {
         clash_api: {
-            external_controller: '127.0.0.1:9090',
             external_ui: 'yacd',
+            default_mode: 'rule',
+            external_controller: '127.0.0.1:9090',
             external_ui_download_url: 'https://github.com/MetaCubeX/Yacd-meta/archive/gh-pages.zip',
             external_ui_download_detour: 'direct',
-            default_mode: 'rule',
         },
         cache_file: {
-            enabled: true,
             path: 'remnawave.db',
+            enabled: true,
             cache_id: 'remnawave',
             store_fakeip: true,
         },

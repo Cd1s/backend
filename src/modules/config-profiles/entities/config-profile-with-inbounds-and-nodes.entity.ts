@@ -8,6 +8,7 @@ export class ConfigProfileWithInboundsAndNodesEntity implements ConfigProfiles {
     public viewPosition: number;
     public name: string;
     public coreType: string;
+    public tags: string[];
     public config: string | number | boolean | JsonObject | JsonArray | null | object;
 
     public inbounds: ConfigProfileInboundEntity[];

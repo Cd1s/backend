@@ -8,6 +8,7 @@ export class GetConfigProfileByUuidResponseModel {
     public readonly viewPosition: number;
     public readonly name: string;
     public readonly coreType: TConfigProfileCoreType;
+    public readonly tags: string[];
     public readonly config: object;
     public readonly inbounds: ConfigProfileInboundEntity[];
     public readonly nodes: {
@@ -24,6 +25,7 @@ export class GetConfigProfileByUuidResponseModel {
         this.viewPosition = entity.viewPosition;
         this.name = entity.name;
         this.coreType = entity.coreType as TConfigProfileCoreType;
+        this.tags = entity.tags;
         this.config = entity.config as object;
         this.inbounds = entity.inbounds;
         this.nodes = entity.nodes;

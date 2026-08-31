@@ -81,7 +81,9 @@ export class ConfigProfileRepository {
         return this.configProfileConverter.fromPrismaModelToEntity(result);
     }
 
-    public async findByCriteria(dto: Partial<ConfigProfileEntity>): Promise<ConfigProfileEntity[]> {
+    public async findByCriteria(
+        dto: Partial<Omit<ConfigProfileEntity, 'tags'>>,
+    ): Promise<ConfigProfileEntity[]> {
         const configProfileList = await this.prisma.tx.configProfiles.findMany({
             where: dto,
         });
@@ -89,7 +91,7 @@ export class ConfigProfileRepository {
     }
 
     public async findFirstByCriteria(
-        dto: Partial<ConfigProfileEntity>,
+        dto: Partial<Omit<ConfigProfileEntity, 'tags'>>,
     ): Promise<ConfigProfileEntity | null> {
         const result = await this.prisma.tx.configProfiles.findFirst({
             where: dto,
@@ -334,5 +336,26 @@ export class ConfigProfileRepository {
             .$executeRaw`SELECT setval('config_profiles_view_position_seq', (SELECT MAX(view_position) FROM config_profiles) + 1)`;
 
         return true;
+    }
+    public async findAllTags(): Promise<string[]> {
+        const result = await this.qb.kysely
+            .selectFrom('configProfiles')
+            .select(sql<string>`unnest(tags)`.as('tag'))
+            .distinct()
+            .where('tags', 'is not', null)
+            .orderBy('tag')
+            .execute();
+
+        return result.map((value) => value.tag);
+    }
+
+    public async setTags(uuid: string, tags: string[]): Promise<string[]> {
+        const result = await this.prisma.tx.configProfiles.update({
+            where: { uuid },
+            data: { tags },
+            select: { tags: true },
+        });
+
+        return result.tags;
     }
 }

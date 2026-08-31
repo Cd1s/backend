@@ -5,6 +5,7 @@ export class ConfigProfileEntity implements ConfigProfiles {
     public viewPosition: number;
     public name: string;
     public coreType: string;
+    public tags: string[];
     public config: object;
 
     public createdAt: Date;

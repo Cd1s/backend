@@ -17,6 +17,7 @@ import { KeygenModule } from './keygen/keygen.module';
 import { MetadataModule } from './metadata/metadata.module';
 import { NodeIntegrationModule } from './node-integrations';
 import { NodePluginModule } from './node-plugins';
+import { NodeSshModule } from './node-ssh/node-ssh.module';
 import { NodesUsageHistoryModule } from './nodes-usage-history/nodes-usage-history.module';
 import { NodesUserUsageHistoryModule } from './nodes-user-usage-history/nodes-user-usage-history.module';
 import { NodesModule } from './nodes/nodes.module';
@@ -59,6 +60,7 @@ import { UsersModule } from './users/users.module';
         ConditionalModule.registerWhen(SubscriptionSettingsModule, () => isRestApi()),
         ConditionalModule.registerWhen(RemnawaveServiceModule, () => isScheduler()),
         ConditionalModule.registerWhen(ConnectionsModule, () => isRestApi()),
+        ConditionalModule.registerWhen(NodeSshModule, () => isRestApi()),
         ConditionalModule.registerWhen(MetadataModule, () => isRestApi()),
     ],
 })
